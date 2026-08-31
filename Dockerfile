@@ -9,12 +9,16 @@
 #
 # py3-pillow and the fonts are only needed by `make fonts`, which
 # regenerates the committed atlases; a normal build does not use them.
+# gcc/musl-dev build the host-side self-checks in tests/, which run on
+# the build machine rather than the console.
 
 FROM ps2dev/ps2dev:latest
 
 RUN apk add --no-cache \
         make \
         bash \
+        gcc \
+        musl-dev \
         git \
         zip \
         python3 \

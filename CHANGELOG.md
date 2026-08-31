@@ -12,6 +12,29 @@ pre-release milestones, not a stable interface.
 
 ### Added
 
+- **Milestone 2 - graphical interface.** A dark theme, drawing primitives,
+  a screen stack, and the Home, System Info, Power and placeholder
+  screens.
+- `atlas_theme_*`: the default dark palette is compiled into the ELF and
+  cannot be removed, so a corrupt or missing theme file still leaves a
+  readable interface rather than an invisible one.
+- `atlas_ui_*`: rectangles, gradients, notched panels, separators, header
+  and footer bars, menu rows, and a modal message box. Every coordinate
+  is safe-area-relative and the 16:9 narrowing is applied in one place,
+  so no screen has to know about overscan or aspect.
+- `atlas_screen_*`: a fixed-depth stack of statically allocated screens.
+  Push, pop and replace take effect between frames, so a screen's
+  `enter()` always runs before it first draws.
+- Home, System Info and Power screens; Power builds its entry list from
+  what is actually available and asks for confirmation before anything
+  that ends the session. Unfinished entries open an honest placeholder
+  rather than a black screen.
+- `atlas_utf8_*`: the UTF-8 decoder, split out of the font renderer so it
+  can be checked on the host. `make check` builds and runs the self-check
+  in `tests/`, which covers the French accented characters, replacement
+  of anything outside Latin-1, and the guarantee that malformed input
+  always advances - a decoder that could stall would hang the render loop
+  with no way out.
 - **Milestone 1 - bootable ELF.** IOP reset, embedded IRX module loading,
   GS bring-up, controller input, bitmap font rendering, and a splash screen
   reporting which module groups came up.

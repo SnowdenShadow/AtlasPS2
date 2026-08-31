@@ -4,6 +4,10 @@
 build/
 release/*.zip
 
+# Host-side self-check binaries, built by `make check`.
+tests/test_*
+!tests/test_*.c
+
 *.o
 *.elf
 *.ELF

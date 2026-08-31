@@ -9,6 +9,7 @@
 #include <malloc.h>
 
 #include "atlas/font.h"
+#include "atlas/utf8.h"
 #include "atlas/video.h"
 #include "atlas/log.h"
 
@@ -178,37 +179,6 @@ static const atlas_glyph_t *glyph_for(const atlas_font_data_t *data, int code)
     return &data->glyphs[code - data->first_char];
 }
 
-/**
- * Decode one UTF-8 code point, advancing *p.
- *
- * The translation files are UTF-8 so French accents arrive as two-byte
- * sequences; our atlas covers Latin-1, so anything above U+00FF becomes
- * '?'. Malformed bytes advance by one to guarantee progress - a decoder
- * that can stall would hang the render loop on a corrupt string.
- */
-static int utf8_next(const char **p)
-{
-    const unsigned char *s = (const unsigned char *)*p;
-    int cp;
-
-    if (s[0] < 0x80) {
-        cp = s[0];
-        *p += 1;
-    } else if ((s[0] & 0xE0) == 0xC0 && (s[1] & 0xC0) == 0x80) {
-        cp = ((s[0] & 0x1F) << 6) | (s[1] & 0x3F);
-        *p += 2;
-    } else if ((s[0] & 0xF0) == 0xE0 && (s[1] & 0xC0) == 0x80
-               && (s[2] & 0xC0) == 0x80) {
-        cp = ((s[0] & 0x0F) << 12) | ((s[1] & 0x3F) << 6) | (s[2] & 0x3F);
-        *p += 3;
-    } else {
-        cp = '?';
-        *p += 1;
-    }
-
-    return (cp > 0xFF) ? '?' : cp;
-}
-
 /* ------------------------------------------------------------------ */
 /* Drawing                                                             */
 /* ------------------------------------------------------------------ */
@@ -224,7 +194,7 @@ void atlas_font_draw_scaled(atlas_font_t *font, float x, float y, float scale,
         return;
 
     while (*p) {
-        int cp = utf8_next(&p);
+        int cp = atlas_utf8_next(&p);
         const atlas_glyph_t *g = glyph_for(font->data, cp);
 
         if (!g)
@@ -293,8 +263,7 @@ void atlas_font_draw_clipped(atlas_font_t *font, float x, float y, u64 color,
         len--;
 
         /* Do not leave a dangling UTF-8 continuation byte. */
-        while (len > 0 && ((unsigned char)buf[len] & 0xC0) == 0x80)
-            len--;
+        len = (size_t)atlas_utf8_trim(buf, (int)len);
     }
 
     atlas_font_draw(font, x, y, color, buf);
@@ -314,7 +283,7 @@ float atlas_font_width_scaled(atlas_font_t *font, const char *text, float scale)
         return 0.0f;
 
     while (*p) {
-        int cp = utf8_next(&p);
+        int cp = atlas_utf8_next(&p);
         const atlas_glyph_t *g = glyph_for(font->data, cp);
 
         if (g)

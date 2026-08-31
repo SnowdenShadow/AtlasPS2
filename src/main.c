@@ -13,6 +13,10 @@
 #include "atlas/video.h"
 #include "atlas/input.h"
 #include "atlas/font.h"
+#include "atlas/theme.h"
+#include "atlas/ui.h"
+#include "atlas/screen.h"
+#include "atlas/screens.h"
 #include "atlas/log.h"
 
 #include "ui/assets/font_ui.h"
@@ -96,9 +100,13 @@ static void draw_centered(atlas_font_t *font, float y, u64 color,
 }
 
 /**
- * Milestone 1 screen: prove the whole stack works end to end - IOP
- * modules, GS, pad, font - and report what came up, so a console where
- * (say) USB failed shows why instead of silently lacking a device.
+ * Boot splash: prove the whole stack works end to end - IOP modules,
+ * GS, pad, font - and report what came up, so a console where (say) USB
+ * failed shows why instead of silently lacking a device.
+ *
+ * Drawn before the theme and the screen stack exist, using the font
+ * directly, so that a failure between here and the Home screen still
+ * leaves something on screen.
  */
 static void splash_loop(atlas_font_t *title, atlas_font_t *ui,
                         const atlas_boot_status_t *st,
@@ -215,6 +223,15 @@ int main(int argc, char *argv[])
     }
 
     splash_loop(font_title, font_ui, &status, &keys);
+
+    /*
+     * From here the interface owns the frame loop. Recovery, when it
+     * exists, will branch to its own root screen here instead of Home -
+     * the hotkey is already latched.
+     */
+    atlas_ui_set_fonts(font_ui, font_title);
+    atlas_screen_reset(atlas_screen_home());
+    atlas_screen_run();
 
     atlas_font_destroy(font_title);
     atlas_font_destroy(font_ui);

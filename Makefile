@@ -32,10 +32,19 @@ EE_SRC = \
 	src/main.c \
 	src/core/err.c \
 	src/core/log.c \
+	src/core/utf8.c \
+	src/core/power.c \
 	src/boot/boot.c \
 	src/video/video.c \
 	src/input/input.c \
 	src/ui/font.c \
+	src/ui/theme.c \
+	src/ui/ui.c \
+	src/ui/screen.c \
+	src/ui/screen_home.c \
+	src/ui/screen_sysinfo.c \
+	src/ui/screen_power.c \
+	src/ui/screen_todo.c \
 	src/ui/assets/font_ui.c \
 	src/ui/assets/font_title.c
 
@@ -52,7 +61,7 @@ ifeq ($(DEBUG),1)
 EE_CFLAGS  += -DATLAS_DEBUG=1
 endif
 
-.PHONY: all debug clean fonts
+.PHONY: all debug check clean fonts
 
 # The SDK's default flags carry DWARF info, which triples the ELF for no
 # benefit on a console with no debugger attached. A release build strips
@@ -106,7 +115,20 @@ fonts:
 	python3 tools/genfont.py $(FONT_DIR)/DejaVuSans-Bold.ttf 24 \
 		src/ui/assets/font_title --name=title
 
+# ------------------------------------------------------------------ #
+# Self-checks                                                         #
+#                                                                     #
+# Run on the build machine with the host compiler, not on the EE:     #
+# they cover the pure data handling (UTF-8, parsing) that behaves the #
+# same off-console. Anything touching the GS, pad or IOP is checked   #
+# on hardware against docs/TESTING.md.                                #
+# ------------------------------------------------------------------ #
+
+check:
+	$(MAKE) -C tests check
+
 clean:
+	$(MAKE) -C tests clean
 	rm -rf build
 
 include $(PS2SDK)/samples/Makefile.pref
