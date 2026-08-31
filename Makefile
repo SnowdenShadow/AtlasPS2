@@ -37,6 +37,7 @@ EE_SRC = \
 	src/core/ini.c \
 	src/core/i18n.c \
 	src/core/file.c \
+	src/core/hash.c \
 	src/core/config.c \
 	src/core/config_io.c \
 	src/core/power.c \
@@ -97,7 +98,7 @@ ifeq ($(DEBUG),1)
 EE_CFLAGS  += -DATLAS_DEBUG=1
 endif
 
-.PHONY: all debug check clean fonts lang
+.PHONY: all debug installer all-elf check clean fonts lang
 
 # The SDK's default flags carry DWARF info, which triples the ELF for no
 # benefit on a console with no debugger attached. A release build strips
@@ -110,6 +111,27 @@ endif
 
 debug:
 	@$(MAKE) DEBUG=1
+
+# ------------------------------------------------------------------ #
+# Installer                                                           #
+#                                                                     #
+# A second ELF from a second Makefile, invoked with -f so it runs in  #
+# this directory: the two programs share build/, build/irx and most   #
+# of src/, and a sub-make run from installer/ would generate a second #
+# copy of every IRX array. `make installer DEBUG=1` for the debug     #
+# build, the same as the launcher.                                    #
+#                                                                     #
+# It is deliberately not part of `all`. The installer is what a user  #
+# runs once from a USB stick; rebuilding it on every launcher build    #
+# doubles compile time for a program that changes far less often.      #
+# ------------------------------------------------------------------ #
+
+installer:
+	@$(MAKE) -f installer/Makefile
+
+# What release packaging needs: both ELFs, same mode, one command.
+all-elf: all
+	@$(MAKE) -f installer/Makefile
 
 # ------------------------------------------------------------------ #
 # Rules                                                               #

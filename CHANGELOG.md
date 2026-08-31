@@ -12,6 +12,73 @@ pre-release milestones, not a stable interface.
 
 ### Added
 
+- **Milestone 6 - the installer.** `ATLAS_INSTALLER.ELF`, a second
+  program built from the same tree, that puts AtlasPS2 onto a Memory
+  Card and can take it off again. It is separate rather than a screen
+  inside the launcher because repairing a broken installation would
+  otherwise mean running the broken installation - and a launcher that
+  will not start is exactly when the installer is needed.
+- Six operations: install, update, repair, backup, restore, uninstall.
+  Each one is five steps - check, backup, copy, config, verify - and the
+  engine runs exactly one step per call so the screen can draw between
+  them. The steps an operation does not need are marked skipped rather
+  than hidden, so the same five lines appear every time and the list
+  reads the same way on the run that goes wrong.
+- **The working `BOOT.ELF` is never written over.** The copy lands as
+  `BOOT/BOOT.NEW`, is checksummed after the card is synced, and only
+  then does the live file rotate to `BOOT/BOOT.BAK` and the staged file
+  take its place. If the rename fails the old file is put straight back.
+  Every outcome except the successful one leaves the card booting what
+  it booted before.
+- Two different backups, deliberately not the same file.
+  `BOOT/BOOT.BAK` is one transaction's rollback slot and is overwritten
+  every update. `ATLAS/BACKUP/BOOT.ELF` is whatever booted the console
+  *before* AtlasPS2 was ever installed: written once, never refreshed,
+  and never taken from a `BOOT.ELF` that is already AtlasPS2. Conflating
+  them would make uninstall reinstall AtlasPS2 after the first update.
+  A plain-text `ORIGINAL.TXT` beside it says what the file is, so it is
+  not deleted as junk.
+- Nothing is deleted to make room. Install creates `ATLAS/CONFIG`,
+  `ATLAS/APPS`, `ATLAS/LANG` and `ATLAS/THEMES` and writes a default
+  `ATLAS.INI` only when one is not already there; update and repair skip
+  the config step entirely, because an update that rewrote `ATLAS.INI`
+  would silently discard the video mode a user needs to see the screen
+  at all. `SYS-CONF` and the rest of the card are never touched.
+- **It refuses to install a bootstrap or exploit**, and says so on a
+  full screen rather than in a footnote. Which exploit a console needs
+  depends on its model and ROM version; guessing is what costs people
+  their Memory Card. The console's ROM name is read and displayed for
+  reference, and acted on by nothing.
+- Progress is live during the copy, not only between steps: a verified
+  copy of a 700 KB ELF is three passes over the file and long enough
+  that a still picture reads as a hang - and the reflex then is to pull
+  the card, during the one operation on it that must not be interrupted.
+  The engine calls back into the screen mid-step and that callback
+  renders a whole frame. There is no cancel button for the same reason.
+- The source ELF is looked for on USB before the Memory Cards, since
+  that is where a release archive gets unzipped and a stale copy on a
+  card should not win over the one just plugged in. Install, update,
+  restore and uninstall each ask a second time before running; backup
+  and repair do not, because a confirmation on every entry trains a user
+  to press through the one that matters.
+- The installer reads no configuration, no theme and no language file.
+  It runs before any of those exist on the card, and its own text is
+  compiled in - the same table the launcher uses, now 94 strings in both
+  languages.
+- `make installer` builds it; `make all-elf` builds both. Objects live
+  in their own tree: the two programs compile the same sources with the
+  same flags, but they have different entry points, and a shared tree
+  would make "which ELF is stale" unanswerable.
+- `atlas_file_rename()` in the file layer, so the installer's activation
+  swap goes through the same place as every other file operation instead
+  of calling fileXio behind its back.
+- `make check` covers CRC-32 against the published IEEE 802.3 check
+  value (`0xCBF43926` for "123456789") rather than against itself: a
+  typo in the table would otherwise produce a stable, wrong hash that
+  the installer would verify every copy against forever. It also pins
+  chunked chaining - if that broke, verification would fail on every
+  file larger than one chunk.
+
 - **Milestone 5 - configuration and translations.** Settings survive a
   power cycle, and every word on screen comes from a table that can be
   replaced from a Memory Card.

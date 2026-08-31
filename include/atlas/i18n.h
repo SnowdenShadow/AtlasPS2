@@ -133,7 +133,142 @@ extern "C" {
                                             "Pas encore disponible dans cette version.") \
     /* Settings values, shown wherever a language is chosen. */              \
     X(LANG_EN,         "lang.en",           "English",        "Anglais")     \
-    X(LANG_FR,         "lang.fr",           "French",         "Fran\xc3\xa7""ais")
+    X(LANG_FR,         "lang.fr",           "French",         "Fran\xc3\xa7""ais") \
+    /* ------------------------------------------------------------------ */\
+    /* Installer.                                                          */\
+    /*                                                                     */\
+    /* Built into the same table as the launcher's, and linked into both   */\
+    /* programs. The installer runs on a console whose Memory Card may be  */\
+    /* the thing that is broken, so it cannot depend on a language file    */\
+    /* living on that card - which is the same reason the tables are built */\
+    /* in at all.                                                          */\
+    /* ------------------------------------------------------------------ */\
+    X(INS_TITLE,       "ins.title",         "AtlasPS2 Installer",            \
+                                            "Installateur AtlasPS2")         \
+    X(INS_CONSOLE,     "ins.console",       "Console",        "Console")     \
+    X(INS_TARGET,      "ins.target",        "Target",         "Destination") \
+    X(INS_FREE,        "ins.free",          "Free space",     "Espace libre")\
+    X(INS_SOURCE,      "ins.source",        "Source",         "Source")      \
+    X(INS_NONE,        "ins.none",          "not found",      "introuvable") \
+    X(INS_INSTALLED,   "ins.installed",     "AtlasPS2 installed",            \
+                                            "AtlasPS2 install\xc3\xa9")      \
+    X(INS_NOT_INST,    "ins.not_installed", "AtlasPS2 not installed",        \
+                                            "AtlasPS2 non install\xc3\xa9")  \
+    X(INS_CHANGE_CARD, "ins.change_card",   "Change card",                   \
+                                            "Changer de carte")              \
+    /* Menu entries and what each one actually does. */                      \
+    X(INS_INSTALL,     "ins.install",       "Install AtlasPS2",              \
+                                            "Installer AtlasPS2")            \
+    X(INS_D_INSTALL,   "ins.d.install",                                      \
+        "Copy AtlasPS2 onto this Memory Card.",                              \
+        "Copier AtlasPS2 sur cette carte m\xc3\xa9moire.")                    \
+    X(INS_UPDATE,      "ins.update",        "Update AtlasPS2",               \
+                                            "Mettre \xc3\xa0 jour AtlasPS2") \
+    X(INS_D_UPDATE,    "ins.d.update",                                       \
+        "Replace the program. Your settings are kept.",                      \
+        "Remplacer le programme. Vos r\xc3\xa9glages sont conserv\xc3\xa9s.") \
+    X(INS_REPAIR,      "ins.repair",        "Repair installation",           \
+                                            "R\xc3\xa9parer l'installation") \
+    X(INS_D_REPAIR,    "ins.d.repair",                                       \
+        "Copy the program again and check every file.",                      \
+        "Recopier le programme et v\xc3\xa9rifier chaque fichier.")           \
+    X(INS_BACKUP,      "ins.backup",        "Backup existing setup",         \
+                                            "Sauvegarder l'installation actuelle") \
+    X(INS_D_BACKUP,    "ins.d.backup",                                       \
+        "Keep a copy of the boot program that is there now.",                \
+        "Conserver une copie du programme de d\xc3\xa9marrage actuel.")       \
+    X(INS_RESTORE,     "ins.restore",       "Restore backup",                \
+                                            "Restaurer la sauvegarde")       \
+    X(INS_D_RESTORE,   "ins.d.restore",                                      \
+        "Put the saved boot program back in place.",                         \
+        "Remettre en place le programme de d\xc3\xa9marrage sauvegard\xc3\xa9.") \
+    X(INS_UNINSTALL,   "ins.uninstall",     "Uninstall AtlasPS2",            \
+                                            "D\xc3\xa9sinstaller AtlasPS2")  \
+    X(INS_D_UNINSTALL, "ins.d.uninstall",                                    \
+        "Restore the boot program that was there before AtlasPS2.",          \
+        "Restaurer le programme de d\xc3\xa9marrage pr\xc3\xa9""c\xc3\xa9""dent.") \
+    X(INS_EXIT,        "ins.exit",          "Exit",           "Quitter")     \
+    X(INS_D_EXIT,      "ins.d.exit",                                         \
+        "Leave the installer without changing anything.",                    \
+        "Quitter l'installateur sans rien modifier.")                        \
+    /* The progress list. Deliberately neutral: these same five lines are  */\
+    /* shown for an uninstall, where "Installing AtlasPS2" would be a lie. */\
+    X(INS_STEP_CHECK,  "ins.step.check",    "Preparing Memory Card",         \
+                                            "Pr\xc3\xa9paration de la carte")\
+    X(INS_STEP_BACKUP, "ins.step.backup",   "Creating backup",               \
+                                            "Cr\xc3\xa9""ation de la sauvegarde") \
+    X(INS_STEP_COPY,   "ins.step.copy",     "Copying program",               \
+                                            "Copie du programme")            \
+    X(INS_STEP_CONFIG, "ins.step.config",   "Installing configuration",      \
+                                            "Installation de la configuration") \
+    X(INS_STEP_VERIFY, "ins.step.verify",   "Verifying files",               \
+                                            "V\xc3\xa9rification des fichiers") \
+    X(INS_WORKING,     "ins.working",                                        \
+        "Working. Do not remove the Memory Card.",                           \
+        "En cours. Ne retirez pas la carte m\xc3\xa9moire.")                  \
+    /* Outcomes. */                                                          \
+    X(INS_OK_INSTALL,  "ins.ok.install",    "Installation completed.",       \
+                                            "Installation termin\xc3\xa9""e.") \
+    X(INS_OK_UPDATE,   "ins.ok.update",     "Update completed.",             \
+                                            "Mise \xc3\xa0 jour termin\xc3\xa9""e.") \
+    X(INS_OK_REPAIR,   "ins.ok.repair",     "Installation repaired.",        \
+                                            "Installation r\xc3\xa9par\xc3\xa9""e.") \
+    X(INS_OK_BACKUP,   "ins.ok.backup",     "Backup created.",               \
+                                            "Sauvegarde cr\xc3\xa9\xc3\xa9""e.") \
+    X(INS_OK_RESTORE,  "ins.ok.restore",    "Backup restored.",              \
+                                            "Sauvegarde restaur\xc3\xa9""e.") \
+    X(INS_OK_UNINSTALL,"ins.ok.uninstall",  "AtlasPS2 was removed.",         \
+                                            "AtlasPS2 a \xc3\xa9t\xc3\xa9 supprim\xc3\xa9.") \
+    X(INS_RESTART,     "ins.restart",                                        \
+        "Restart the console to use AtlasPS2.",                              \
+        "Red\xc3\xa9marrez la console pour utiliser AtlasPS2.")               \
+    /* Refusals and failures. Each says what state the card is in, because */\
+    /* "it failed" leaves the user unable to tell whether to try again.    */\
+    X(INS_E_NOCARD,    "ins.e.nocard",                                       \
+        "No usable Memory Card in that slot.",                               \
+        "Aucune carte m\xc3\xa9moire utilisable dans ce port.")               \
+    X(INS_E_NOSRC,     "ins.e.nosrc",                                        \
+        "ATLASPS2.ELF was not found next to the installer.",                 \
+        "ATLASPS2.ELF est introuvable \xc3\xa0 c\xc3\xb4t\xc3\xa9 de l'installateur.") \
+    X(INS_E_SPACE,     "ins.e.space",                                        \
+        "Not enough free space on the Memory Card.",                         \
+        "Espace insuffisant sur la carte m\xc3\xa9moire.")                    \
+    X(INS_E_COPY,      "ins.e.copy",                                         \
+        "The program could not be copied.",                                  \
+        "Le programme n'a pas pu \xc3\xaatre copi\xc3\xa9.")                  \
+    X(INS_E_VERIFY,    "ins.e.verify",                                       \
+        "The copy did not match the original. Nothing was changed.",         \
+        "La copie ne correspond pas \xc3\xa0 l'original. Rien n'a "           \
+        "\xc3\xa9t\xc3\xa9 modifi\xc3\xa9.")                                  \
+    X(INS_E_ROLLBACK,  "ins.e.rollback",                                     \
+        "It failed. The previous program was put back.",                     \
+        "\xc3\x89""chec. Le programme pr\xc3\xa9""c\xc3\xa9""dent a "         \
+        "\xc3\xa9t\xc3\xa9 remis en place.")                                  \
+    X(INS_E_NOBACKUP,  "ins.e.nobackup",                                     \
+        "There is no backup on this Memory Card.",                           \
+        "Aucune sauvegarde sur cette carte m\xc3\xa9moire.")                  \
+    X(INS_E_NOTINST,   "ins.e.notinst",                                      \
+        "AtlasPS2 is not installed on this Memory Card.",                    \
+        "AtlasPS2 n'est pas install\xc3\xa9 sur cette carte m\xc3\xa9moire.") \
+    X(INS_E_OTHER,     "ins.e.other",                                        \
+        "The operation could not be completed.",                             \
+        "L'op\xc3\xa9ration n'a pas pu \xc3\xaatre men\xc3\xa9""e \xc3\xa0 "   \
+        "son terme.")                                                        \
+    /* The bootstrap refusal. This is a safety message, not a limitation   */\
+    /* to be apologised for: guessing a variant is what costs a user their */\
+    /* Memory Card, so the program says plainly that it will not guess.    */\
+    X(INS_BOOT_TITLE,  "ins.boot.title",    "Bootstrap not installed",       \
+                                            "Bootstrap non install\xc3\xa9") \
+    X(INS_BOOT_BODY,   "ins.boot.body",                                      \
+        "This installer never installs a bootstrap or exploit. Which one a " \
+        "console needs depends on its model and ROM, and the wrong one can " \
+        "leave a Memory Card the console will not boot from. Set your "      \
+        "exploit up with a tool made for it, then come back here.",          \
+        "Cet installateur n'installe jamais de bootstrap ni d'exploit. "     \
+        "Celui qu'il faut d\xc3\xa9pend du mod\xc3\xa8le et de la ROM de la " \
+        "console, et un mauvais choix peut rendre la carte m\xc3\xa9moire "  \
+        "ind\xc3\xa9marrable. Installez votre exploit avec un outil "        \
+        "pr\xc3\xa9vu pour cela, puis revenez ici.")
 
 typedef enum {
 #define ATLAS_STR_ENUM(id, name, en, fr) ATLAS_STR_##id,

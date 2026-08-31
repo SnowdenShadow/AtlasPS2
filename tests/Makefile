@@ -18,7 +18,7 @@ CFLAGS += -Wall -Wextra -O1 -I../include -Ihost
 # was built with and quietly pass a check on strings it never saw.
 HDRS = $(wildcard ../include/atlas/*.h host/*.h)
 
-TESTS = test_utf8 test_path test_ini test_i18n test_config
+TESTS = test_utf8 test_path test_ini test_i18n test_config test_hash
 
 .PHONY: check clean
 
@@ -41,6 +41,12 @@ test_i18n: test_i18n.c ../src/core/i18n.c $(HDRS)
 # the parts of that module with no gsKit dependency, which is exactly
 # why it is a separate file.
 test_config: test_config.c ../src/core/config.c ../src/core/ini.c ../src/core/i18n.c ../src/video/video_cfg.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
+
+# hash.c is pure arithmetic, so the host answer and the console answer
+# are the same value - which is the point: the installer compares a
+# checksum computed on the PS2 against one this check pinned here.
+test_hash: test_hash.c ../src/core/hash.c $(HDRS)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
 
 clean:
