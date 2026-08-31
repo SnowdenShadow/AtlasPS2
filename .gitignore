@@ -1,0 +1,13 @@
+# Build output. The baked font atlases under src/ui/assets/ are NOT
+# ignored: they are committed so a normal build needs neither Python nor
+# the source TTFs.
+build/
+release/*.zip
+
+*.o
+*.elf
+*.ELF
+!release/**/*.ELF
+
+.DS_Store
+Thumbs.db

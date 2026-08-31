@@ -1,0 +1,45 @@
+MIT License
+
+Copyright (c) 2026 AtlasPS2 contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+--------------------------------------------------------------------------
+
+THIRD-PARTY COMPONENTS
+
+AtlasPS2 links against and embeds components with their own licences:
+
+  PS2SDK      - Academic Free License 2.0
+                https://github.com/ps2dev/ps2sdk
+                The IRX modules embedded in ATLASPS2.ELF (iomanX, fileXio,
+                sio2man, padman, mcman, mcserv, usbd, bdm, bdmfs_fatfs,
+                usbmass_bd, poweroff) are unmodified PS2SDK binaries.
+
+  gsKit       - Academic Free License 2.0
+                https://github.com/ps2dev/gsKit
+
+  DejaVu Sans - DejaVu Fonts License (Bitstream Vera derivative), a free
+                licence permitting redistribution and embedding.
+                The bitmap atlases in src/ui/assets/ are baked from it by
+                tools/genfont.py; no font file is redistributed as such.
+
+AtlasPS2 contains NO Sony code, BIOS data, firmware, encryption keys or
+graphical assets. It does not read rom0:FONTM or any other ROM resource.
+All user-interface artwork is original to this project.
