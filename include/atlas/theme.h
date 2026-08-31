@@ -31,32 +31,52 @@ extern "C" {
 /** Fully opaque on the GS. Not 0xFF - see the header comment. */
 #define ATLAS_ALPHA_OPAQUE 0x80
 
+/*
+ * The palette, as one row per colour: the struct member and the name
+ * that addresses it in a theme.ini.
+ *
+ * One table rather than two because the field and its file name have to
+ * agree, and a struct and a lookup table maintained separately drift
+ * the moment a colour is added - silently, into a theme file where the
+ * key is simply ignored and the author cannot tell why.
+ *
+ * The order is also the order the fields are declared in, which is what
+ * makes the built-in initialiser below readable.
+ */
+#define ATLAS_THEME_FIELDS(X)                                             \
+    /* Background: a subtle vertical gradient, top to bottom. */          \
+    X(bg_top,         "bg_top")                                           \
+    X(bg_bottom,      "bg_bottom")                                        \
+    /* Panels and separators. */                                          \
+    X(panel,          "panel")                                            \
+    X(panel_selected, "panel_selected")                                   \
+    X(separator,      "separator")                                        \
+    /* Text. */                                                           \
+    X(text,           "text")            /* primary, white   */           \
+    X(text_dim,       "text_dim")        /* secondary, grey  */           \
+    X(text_on_accent, "text_on_accent")                                   \
+    /* Accents and states. */                                             \
+    X(accent,         "accent")          /* electric blue    */           \
+    X(accent_dim,     "accent_dim")                                       \
+    X(warn,           "warn")                                             \
+    X(error,          "error")                                            \
+    X(ok,             "ok")                                               \
+    /* Header and footer bars. */                                         \
+    X(bar,            "bar")                                              \
+    X(bar_text,       "bar_text")
+
 typedef struct {
-    /* Background: a subtle vertical gradient, top to bottom. */
-    u64 bg_top;
-    u64 bg_bottom;
-
-    /* Panels and separators. */
-    u64 panel;
-    u64 panel_selected;
-    u64 separator;
-
-    /* Text. */
-    u64 text;        /* primary, white                */
-    u64 text_dim;    /* secondary, grey               */
-    u64 text_on_accent;
-
-    /* Accents and states. */
-    u64 accent;      /* electric blue                 */
-    u64 accent_dim;
-    u64 warn;
-    u64 error;
-    u64 ok;
-
-    /* Header and footer bars. */
-    u64 bar;
-    u64 bar_text;
+#define ATLAS_THEME_DECL(field, name) u64 field;
+    ATLAS_THEME_FIELDS(ATLAS_THEME_DECL)
+#undef ATLAS_THEME_DECL
 } atlas_theme_t;
+
+/** How many colours a theme has. */
+#define ATLAS_THEME_FIELD_COUNT \
+    ((int)(sizeof(atlas_theme_t) / sizeof(u64)))
+
+/** The longest theme name, matching ATLAS_CFG_THEME_MAX. */
+#define ATLAS_THEME_NAME_MAX 32
 
 /* ------------------------------------------------------------------ */
 /* Metrics                                                             */
@@ -87,6 +107,78 @@ const atlas_theme_t *atlas_theme(void);
  * resident just because it is active.
  */
 void atlas_theme_set(const atlas_theme_t *theme);
+
+/** The name of the theme in use, or "" when it is the built-in one. */
+const char *atlas_theme_name(void);
+
+/* ------------------------------------------------------------------ */
+/* Reading a theme file                                                */
+/*                                                                     */
+/* Split from the loading so it can be checked on the build machine:   */
+/* the colour parser is where a theme file goes wrong, and a check     */
+/* that needs a television is not a check.                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Apply one `key = value` pair from a theme.ini to `theme`.
+ *
+ * The value is a colour: `#RRGGBB`, `#RRGGBBAA`, or the same without
+ * the '#'. Alpha is on the GS scale where 0x80 is opaque, so a file
+ * asking for 0xFF is clamped rather than over-saturating - a theme
+ * author has no way to know that from looking at the number.
+ *
+ * Unknown keys are ignored, not rejected: a theme written for a later
+ * version with more colours in it must still load on this one.
+ *
+ * @return 1 if the key was recognised and applied, 0 otherwise.
+ */
+int atlas_theme_set_field(atlas_theme_t *theme, const char *key,
+                          const char *value);
+
+/**
+ * Parse a whole theme.ini over a copy of the built-in theme.
+ *
+ * Starting from the built-in one rather than from zero is what makes a
+ * partial file safe: a theme naming only an accent colour is a theme
+ * with one colour changed, not one with fourteen invisible ones.
+ *
+ * @param applied  optional; receives how many colours the file set.
+ * @return ATLAS_OK, or ATLAS_EINVAL for a bad argument.
+ */
+atlas_err_t atlas_theme_parse(atlas_theme_t *out, const char *text, int len,
+                              int *applied);
+
+/* ------------------------------------------------------------------ */
+/* Loading from a device                                               */
+/* ------------------------------------------------------------------ */
+
+/** The longest theme.ini this module will read. */
+#define ATLAS_THEME_FILE_MAX 4096
+
+/**
+ * Load `ATLAS/THEMES/<name>/theme.ini` and make it the active theme.
+ *
+ * Searched on the Memory Cards before USB, the same order the
+ * configuration uses. A name that is empty, or that no device carries,
+ * leaves the built-in theme active and reports it - a missing theme is
+ * a cosmetic problem and must never be a boot failure.
+ *
+ * @return ATLAS_OK, ATLAS_ENOENT if no device has that theme,
+ *         ATLAS_EINVAL for an empty name.
+ */
+atlas_err_t atlas_theme_load(const char *name);
+
+/**
+ * List the theme names present on the attached devices.
+ *
+ * Used by the settings screen, which offers what is actually there
+ * rather than a text field the user has to type a folder name into.
+ *
+ * @param names  receives up to `max` names, each ATLAS_THEME_NAME_MAX
+ *               bytes; duplicates across devices are listed once.
+ * @return how many were written.
+ */
+int atlas_theme_list(char (*names)[ATLAS_THEME_NAME_MAX], int max);
 
 #ifdef __cplusplus
 }

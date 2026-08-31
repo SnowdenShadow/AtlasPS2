@@ -47,9 +47,15 @@ src/video/       AtlasVideo: GS setup, modes, safe area
 src/input/       controller handling
 src/ui/          font rendering and the interface
 src/ui/assets/   baked font atlases (generated, committed)
+assets/themes/   an example theme, ready to copy to a card
 tools/           build-time asset generation
-docs/            architecture, build, install, recovery
+docs/            architecture, build, install, recovery, themes
 ```
+
+Themes are fifteen colours in a `theme.ini`; see
+[docs/THEMES.md](docs/THEMES.md). The built-in theme is compiled in and
+cannot be removed, so a theme file that is missing or broken costs you
+colours and never the console.
 
 ## Safety
 

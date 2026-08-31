@@ -12,6 +12,56 @@ pre-release milestones, not a stable interface.
 
 ### Added
 
+- **Milestone 9 - themes.** A theme is a folder holding a `theme.ini`
+  with fifteen colours in it, read from `ATLAS/THEMES/<Name>/` on a
+  Memory Card or a USB stick. Memory Cards are searched before USB, the
+  same order the configuration uses: a card stays in the console, so a
+  borrowed stick does not quietly take over how it looks.
+- **The built-in theme is compiled in and cannot be removed**, which is
+  what makes every other guarantee here safe. A theme file that is
+  missing, empty, truncated or full of typos leaves a readable
+  interface. Deleting the theme a console boots with costs colours, not
+  the console.
+- **A bad line costs one colour.** Unknown keys are ignored, so a theme
+  written for a later version with more colours in it still loads; a
+  value that is not a colour leaves that field at its built-in default
+  rather than being half-parsed into a colour the author never chose.
+  A file naming only `accent` is a theme with one colour changed, not
+  one with fourteen invisible ones.
+- **Alpha is clamped to the GS scale.** On the Graphics Synthesizer
+  `0x80` is opaque and higher values over-saturate into a white block.
+  A theme asking for the `0xFF` that every other system spells "opaque"
+  gets an opaque colour, because an author has no way to know that from
+  looking at the number.
+- **Home > Theme** lists what is actually on the attached devices,
+  plus the built-in theme, rather than offering a text field to type a
+  folder name into on a console with no keyboard. A folder without a
+  `theme.ini` in it is not listed, and the same theme on a card and a
+  stick is one row.
+- **Highlighting a theme applies it.** Colours are the one setting
+  whose whole meaning is how they look, and a preview costing a press
+  and a screen transition is a preview nobody uses. Leaving without
+  saving puts back the theme that was live on entry - restored from the
+  running module rather than by re-reading `ATLAS.INI`, so a boot where
+  the configured theme failed to load does not retry that failure on
+  the way out of the screen the user came to fix it from.
+- **Save writes the theme that is on the screen**, not the row the
+  cursor last passed over. A theme that failed to load leaves the
+  built-in palette up, and writing its name anyway would save a setting
+  that reproduces that failure on every boot from then on.
+- **`docs/THEMES.md` and `assets/themes/Midnight/`** - the full key
+  reference, the rules about mistakes, and a complete example to copy,
+  with the CRT notes that matter: a bloom on thin light text, bleeding
+  saturated reds, and banding across too wide a gradient.
+- The theme parser is a host-side self-check (`test_theme`, 7 suites
+  now). A theme file's colours are exactly what is wrong when a theme
+  looks wrong, and a check that needs a television is not a check. It
+  also parses the shipped example and asserts all fifteen fields land,
+  since that file is what every theme author starts from.
+- Recovery mode still ignores themes entirely and draws in fixed
+  colours. That is unchanged and is the reason it can be trusted to
+  repair a console whose theme is the thing that broke it.
+
 - **Milestone 8 - the video screen.** The Home entry that opened a
   placeholder now opens the settings AtlasVideo has always had: display
   mode, aspect, screen position and margin, edited with Left and Right

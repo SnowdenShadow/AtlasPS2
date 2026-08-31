@@ -214,6 +214,16 @@ static void load_settings(const boot_hotkeys_t *keys)
     atlas_i18n_set_lang(cfg.lang);
     atlas_i18n_load_overrides();
 
+    /*
+     * Before the video check, because a theme is not a video mode: R1
+     * is held to escape a picture the television cannot show, and a
+     * palette has nothing to do with that. Whether it succeeds is not
+     * examined - a missing theme leaves the built-in one active, which
+     * is a cosmetic disappointment and must never be a boot failure.
+     */
+    if (cfg.theme[0] != '\0' && strcmp(cfg.theme, "default") != 0)
+        atlas_theme_load(cfg.theme);
+
     if (keys->safe_video) {
         ATLAS_LOG("CFG", "safe video: stored video settings skipped");
         return;

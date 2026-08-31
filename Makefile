@@ -51,6 +51,7 @@ EE_SRC = \
 	src/apps/launch.c \
 	src/ui/font.c \
 	src/ui/theme.c \
+	src/ui/theme_io.c \
 	src/ui/ui.c \
 	src/ui/screen.c \
 	src/ui/screen_home.c \
@@ -58,6 +59,7 @@ EE_SRC = \
 	src/ui/screen_apps.c \
 	src/ui/screen_sysinfo.c \
 	src/ui/screen_video.c \
+	src/ui/screen_theme.c \
 	src/ui/screen_power.c \
 	src/ui/screen_recovery.c \
 	src/ui/screen_install_run.c \

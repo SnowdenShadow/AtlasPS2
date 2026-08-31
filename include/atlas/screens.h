@@ -48,6 +48,17 @@ atlas_screen_t *atlas_screen_sysinfo(void);
  */
 atlas_screen_t *atlas_screen_video(void);
 
+/**
+ * The theme picker, previewed live and confirmed by saving.
+ *
+ * Offers the built-in theme plus whatever is on the attached devices.
+ * Highlighting a row applies it at once - a palette cannot make the
+ * television lose the picture, so the guarded flow the video screen
+ * needs would only be in the way here. Leaving without saving puts
+ * back the theme that was live on entry.
+ */
+atlas_screen_t *atlas_screen_theme(void);
+
 /** Power options. Only the ones that can be performed safely appear. */
 atlas_screen_t *atlas_screen_power(void);
 

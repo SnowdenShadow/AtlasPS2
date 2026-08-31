@@ -18,7 +18,8 @@ CFLAGS += -Wall -Wextra -O1 -I../include -Ihost
 # was built with and quietly pass a check on strings it never saw.
 HDRS = $(wildcard ../include/atlas/*.h host/*.h)
 
-TESTS = test_utf8 test_path test_ini test_i18n test_config test_hash
+TESTS = test_utf8 test_path test_ini test_i18n test_config test_hash \
+        test_theme
 
 .PHONY: check clean
 
@@ -47,6 +48,14 @@ test_config: test_config.c ../src/core/config.c ../src/core/ini.c ../src/core/i1
 # are the same value - which is the point: the installer compares a
 # checksum computed on the PS2 against one this check pinned here.
 test_hash: test_hash.c ../src/core/hash.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
+
+# theme.c holds the palette and the colour parser and touches no
+# device; theme_io.c is the half that reads Memory Cards, and is not
+# here. That split exists for this check: a theme file's colours are
+# exactly what is wrong when a theme looks wrong, and a check that
+# needs a television is not a check.
+test_theme: test_theme.c ../src/ui/theme.c $(HDRS)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
 
 clean:

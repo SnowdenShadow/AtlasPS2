@@ -410,7 +410,53 @@ extern "C" {
         "Output signal only: the interface is always drawn at 640x448 or "   \
         "640x512.",                                                          \
         "Signal de sortie uniquement : l'interface est toujours dessin\xc3\xa9""e " \
-        "en 640x448 ou 640x512.")
+        "en 640x448 ou 640x512.")                                            \
+                                                                             \
+    /* ------------------------------------------------------------------ */\
+    /* Themes.                                                             */\
+    /*                                                                     */\
+    /* A theme's own name is not translated: it is the name of a folder    */\
+    /* on the card, and a user looking for it there has to find the same   */\
+    /* word they saw on the screen.                                        */\
+    /* ------------------------------------------------------------------ */\
+    X(THEME_TITLE,     "theme.title",       "Theme",          "Th\xc3\xa8me") \
+    X(THEME_BUILTIN,   "theme.builtin",     "Built-in",       "Int\xc3\xa9gr\xc3\xa9") \
+    X(THEME_D_BUILTIN, "theme.d.builtin",                                    \
+        "The default AtlasPS2 look. Always available.",                      \
+        "L'apparence AtlasPS2 par d\xc3\xa9""faut. Toujours disponible.")     \
+    X(THEME_D_ONE,     "theme.d.one",                                        \
+        "Applied straight away. Choose Save to keep it after a restart.",    \
+        "Appliqu\xc3\xa9 imm\xc3\xa9""diatement. Choisissez Enregistrer pour " \
+        "le conserver apr\xc3\xa8s un red\xc3\xa9marrage.")                   \
+    X(THEME_SAVE,      "theme.save",        "Save",           "Enregistrer") \
+    X(THEME_D_SAVE,    "theme.d.save",                                       \
+        "Write the chosen theme to ATLAS.INI.",                              \
+        "\xc3\x89""crire le th\xc3\xa8me choisi dans ATLAS.INI.")             \
+    X(THEME_SAVED,     "theme.saved",       "Theme saved.",                  \
+                                            "Th\xc3\xa8me enregistr\xc3\xa9.") \
+    X(THEME_E_SAVE,    "theme.e.save",                                       \
+        "Could not save. No device could be written to.",                    \
+        "Enregistrement impossible. Aucun p\xc3\xa9riph\xc3\xa9rique n'a pu " \
+        "\xc3\xaatre \xc3\xa9""crit.")                                        \
+    X(THEME_E_LOAD,    "theme.e.load",                                       \
+        "That theme could not be read. The built-in one is still in use.",   \
+        "Ce th\xc3\xa8me n'a pas pu \xc3\xaatre lu. Le th\xc3\xa8me int\xc3\xa9gr\xc3\xa9 " \
+        "reste actif.")                                                      \
+    X(THEME_NONE,      "theme.none",                                         \
+        "No themes found on the attached devices.",                          \
+        "Aucun th\xc3\xa8me trouv\xc3\xa9 sur les p\xc3\xa9riph\xc3\xa9riques " \
+        "connect\xc3\xa9s.")                                                  \
+    X(THEME_NONE_HINT, "theme.none.hint",                                    \
+        "A theme is a folder holding theme.ini, in ATLAS/THEMES on a "       \
+        "Memory Card or a USB stick.",                                       \
+        "Un th\xc3\xa8me est un dossier contenant theme.ini, dans "           \
+        "ATLAS/THEMES sur une carte m\xc3\xa9moire ou une cl\xc3\xa9 USB.")   \
+    X(THEME_NOTE,      "theme.note",                                         \
+        "The built-in theme cannot be removed, so a missing theme file "     \
+        "never leaves the console unusable.",                                \
+        "Le th\xc3\xa8me int\xc3\xa9gr\xc3\xa9 ne peut pas \xc3\xaatre "       \
+        "supprim\xc3\xa9 : un fichier de th\xc3\xa8me manquant ne rend "      \
+        "jamais la console inutilisable.")
 
 typedef enum {
 #define ATLAS_STR_ENUM(id, name, en, fr) ATLAS_STR_##id,
