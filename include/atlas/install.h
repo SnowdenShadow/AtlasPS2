@@ -1,18 +1,30 @@
 /*
  * AtlasPS2 - install.h
  *
- * The installer's engine: everything that touches a Memory Card, with
- * no drawing in it. The screen above drives it one step per frame and
+ * The install engine: everything that touches a Memory Card, with no
+ * drawing in it. The screen above drives it one step per frame and
  * renders whatever the job structure says.
  *
- * WHY THIS IS A SEPARATE PROGRAM
- * ------------------------------
- * The installer writes the file the console boots. If it were a screen
- * inside AtlasPS2, then repairing a broken installation would mean
- * running the broken installation - and a launcher that cannot start is
- * exactly when a user needs the installer most. So it ships as its own
- * ELF, launched from USB by whatever homebrew environment the console
- * already has.
+ * WHY BOTH PROGRAMS LINK THIS
+ * ---------------------------
+ * The installer is a separate ELF, and it has to be: it writes the file
+ * the console boots, so repairing a broken installation must not mean
+ * running the broken installation - a launcher that cannot start is
+ * exactly when a user needs the installer most. That ELF ships on USB
+ * and is launched by whatever homebrew environment the console already
+ * has.
+ *
+ * But Recovery, inside the launcher, needs the same operations: a
+ * reinstall and a rollback are the two things a user reaches Recovery
+ * to do. Two copies of a transaction that swaps BOOT.ELF is two chances
+ * to get the rollback wrong, and only one of them would be exercised on
+ * any given run. So the engine lives in the shared tree, both ELFs link
+ * it, and there is exactly one implementation of the swap.
+ *
+ * The difference between the programs is the ORIGIN of the new ELF, not
+ * the mechanism: the installer copies from a source it finds on USB,
+ * while the launcher's update reads mass:/ATLAS_UPDATE/. Both end in
+ * the same verified copy and the same activation.
  *
  * WHAT IT DELIBERATELY DOES NOT DO
  * --------------------------------
@@ -68,6 +80,19 @@ typedef enum {
     ATLAS_OP_BACKUP,       /**< refresh ATLAS/BACKUP by hand           */
     ATLAS_OP_RESTORE,      /**< put ATLAS/BACKUP back into place       */
     ATLAS_OP_UNINSTALL,    /**< restore the previous boot program      */
+
+    /**
+     * Swap BOOT.ELF and BOOT.BAK: go back to the AtlasPS2 build that
+     * was here before the last update.
+     *
+     * Not the same as RESTORE, which reaches past every AtlasPS2 build
+     * to whatever the console booted originally. This is the one a user
+     * wants when a new version misbehaves, and it is why Recovery links
+     * this engine at all. Because it is a swap rather than a copy, doing
+     * it twice returns to where it started.
+     */
+    ATLAS_OP_ROLLBACK,
+
     ATLAS_OP_COUNT
 } atlas_install_op_t;
 
@@ -171,6 +196,14 @@ int atlas_install_is_installed(atlas_device_id_t dev);
 
 /** Does this device carry an ATLAS/BACKUP to restore from? */
 int atlas_install_has_backup(atlas_device_id_t dev);
+
+/**
+ * Is there a previous AtlasPS2 build to roll back to?
+ *
+ * True only on a card AtlasPS2 boots: a BOOT.BAK beside someone else's
+ * BOOT.ELF belongs to someone else's installer.
+ */
+int atlas_install_has_rollback(atlas_device_id_t dev);
 
 /**
  * Can `op` be performed on `dev` right now?

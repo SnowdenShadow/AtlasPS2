@@ -1,5 +1,5 @@
 /*
- * AtlasPS2 - ins_run.c
+ * AtlasPS2 - screen_install_run.c
  * The progress screen: five lines, each one gaining a tick as it lands.
  *
  * WHY THE ENGINE DRAWS THROUGH THIS SCREEN
@@ -10,11 +10,17 @@
  * on it that must not be interrupted. So the engine calls back into
  * here mid-step and this screen renders a frame, which means the bar
  * moves while a step is running rather than only between steps.
+ *
+ * Shared by the installer and by Recovery. Both watch the same engine
+ * perform the same five steps, and a second copy of this screen would
+ * be a second place for the "do not remove the card" line to be missing
+ * from.
  */
 #include <stdio.h>
 #include <string.h>
 
-#include "ins_screen.h"
+#include "atlas/screens.h"
+#include "atlas/install.h"
 
 #include "atlas/i18n.h"
 #include "atlas/input.h"
@@ -248,7 +254,7 @@ static void run_draw(atlas_screen_t *self)
 }
 
 static atlas_screen_t s_screen = {
-    "InstallerRun",
+    "InstallRun",
     run_enter,
     run_leave,
     run_update,
@@ -256,7 +262,7 @@ static atlas_screen_t s_screen = {
     &s_state
 };
 
-atlas_screen_t *atlas_ins_screen_run(const atlas_install_job_t *job)
+atlas_screen_t *atlas_screen_install_run(const atlas_install_job_t *job)
 {
     if (job)
         memcpy(&s_state.job, job, sizeof(s_state.job));

@@ -41,6 +41,7 @@ EE_SRC = \
 	src/core/config.c \
 	src/core/config_io.c \
 	src/core/power.c \
+	src/core/install.c \
 	src/boot/boot.c \
 	src/video/video.c \
 	src/video/video_cfg.c \
@@ -57,6 +58,8 @@ EE_SRC = \
 	src/ui/screen_apps.c \
 	src/ui/screen_sysinfo.c \
 	src/ui/screen_power.c \
+	src/ui/screen_recovery.c \
+	src/ui/screen_install_run.c \
 	src/ui/screen_todo.c \
 	src/ui/assets/font_ui.c \
 	src/ui/assets/font_title.c

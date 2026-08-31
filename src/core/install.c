@@ -17,7 +17,7 @@
 
 #include <rom0_info.h>
 
-#include "install.h"
+#include "atlas/install.h"
 
 #include "atlas/config.h"
 #include "atlas/device.h"
@@ -55,8 +55,14 @@
 /* Where ATLASPS2.ELF is looked for, in order. The release ships the two
  * ELFs side by side, so the stick the installer was launched from is
  * the first place to look; the rest cover a user who copied the files
- * into a folder or onto a card by hand. */
+ * into a folder or onto a card by hand.
+ *
+ * ATLAS_UPDATE/ leads, because it is the one location a user creates on
+ * purpose to mean "install this build". A stick that holds both a fresh
+ * download in ATLAS_UPDATE/ and last month's copy in the root should
+ * not install last month's. */
 static const char *const s_source_rel[] = {
+    "ATLAS_UPDATE/ATLASPS2.ELF",
     "ATLASPS2.ELF",
     "ATLAS/ATLASPS2.ELF",
     "ATLAS/APPS/ATLASPS2.ELF"
@@ -149,6 +155,25 @@ int atlas_install_has_backup(atlas_device_id_t dev)
     char path[ATLAS_INSTALL_PATH_MAX];
 
     if (!dev_path(dev, P_BACKUP_ELF, path, sizeof(path)))
+        return 0;
+
+    return atlas_file_exists(path);
+}
+
+int atlas_install_has_rollback(atlas_device_id_t dev)
+{
+    char path[ATLAS_INSTALL_PATH_MAX];
+
+    /*
+     * Only meaningful on a card that AtlasPS2 boots. A BOOT.BAK beside
+     * someone else's BOOT.ELF was put there by someone else's
+     * installer, and swapping it in would be this program handing the
+     * console a file it knows nothing about.
+     */
+    if (!atlas_install_is_installed(dev))
+        return 0;
+
+    if (!dev_path(dev, P_BOOT_BAK, path, sizeof(path)))
         return 0;
 
     return atlas_file_exists(path);
@@ -254,6 +279,9 @@ int atlas_install_op_available(atlas_install_op_t op, atlas_device_id_t dev)
     case ATLAS_OP_RESTORE:
         return atlas_install_has_backup(dev);
 
+    case ATLAS_OP_ROLLBACK:
+        return atlas_install_has_rollback(dev);
+
     default:
         return 0;
     }
@@ -296,6 +324,7 @@ static int step_applies(atlas_install_op_t op, atlas_install_step_t step)
 
     case ATLAS_OP_RESTORE:
     case ATLAS_OP_UNINSTALL:
+    case ATLAS_OP_ROLLBACK:
         /* Copy moves the saved program back; verify then swaps it in. */
         return step == ATLAS_STEP_CHECK
             || step == ATLAS_STEP_COPY
@@ -330,6 +359,7 @@ static atlas_str_id_t success_message(atlas_install_op_t op)
     case ATLAS_OP_BACKUP:    return ATLAS_STR_INS_OK_BACKUP;
     case ATLAS_OP_RESTORE:   return ATLAS_STR_INS_OK_RESTORE;
     case ATLAS_OP_UNINSTALL: return ATLAS_STR_INS_OK_UNINSTALL;
+    case ATLAS_OP_ROLLBACK:  return ATLAS_STR_INS_OK_ROLLBACK;
     default:                 return ATLAS_STR_INS_OK_INSTALL;
     }
 }
@@ -384,6 +414,38 @@ void atlas_install_begin(atlas_install_job_t *job, atlas_install_op_t op,
  * copy step never fails for a missing parent - which on a card that
  * already has other homebrew on it would be a confusing way to fail.
  */
+/**
+ * Where this operation's new BOOT.ELF comes from.
+ *
+ * Copy and verify both need the answer and must agree on it: verify
+ * checksums the staged file against its origin, so an origin that
+ * differed between the two steps would compare the copy against a file
+ * it was never made from and fail every time.
+ *
+ * Writes an empty string for the operations that take the source found
+ * at begin() time, which lives in the job.
+ *
+ * @return 0 if a path could not be built.
+ */
+static int source_for(const atlas_install_job_t *job, char *out, int size)
+{
+    out[0] = '\0';
+
+    switch (job->op) {
+    case ATLAS_OP_RESTORE:
+    case ATLAS_OP_UNINSTALL:
+        /* Reaches past every AtlasPS2 build to the original program. */
+        return dev_path(job->target, P_BACKUP_ELF, out, size);
+
+    case ATLAS_OP_ROLLBACK:
+        /* The previous AtlasPS2 build, one transaction back. */
+        return dev_path(job->target, P_BOOT_BAK, out, size);
+
+    default:
+        return 1;
+    }
+}
+
 static atlas_err_t step_check(atlas_install_job_t *job)
 {
     const atlas_device_t *d = atlas_device_get(job->target);
@@ -406,11 +468,16 @@ static atlas_err_t step_check(atlas_install_job_t *job)
         return ATLAS_ENOSPC;
     }
 
-    if (job->op == ATLAS_OP_RESTORE || job->op == ATLAS_OP_UNINSTALL) {
-        if (!dev_path(job->target, P_BACKUP_ELF, path, sizeof(path))
-            || !atlas_file_exists(path))
-            return ATLAS_ENOENT;
-    }
+    /*
+     * The operations that copy from the card check their source is
+     * there now, rather than discovering it missing after three steps
+     * have already reported success.
+     */
+    if (!source_for(job, path, sizeof(path)))
+        return ATLAS_EINVAL;
+
+    if (path[0] && !atlas_file_exists(path))
+        return ATLAS_ENOENT;
 
     if (dev_path(job->target, P_BOOT_DIR, path, sizeof(path)))
         atlas_file_mkdir_p(path);
@@ -524,13 +591,10 @@ static atlas_err_t step_copy(atlas_install_job_t *job)
     if (!dev_path(job->target, P_BOOT_NEW, dst, sizeof(dst)))
         return ATLAS_EINVAL;
 
-    if (job->op == ATLAS_OP_RESTORE || job->op == ATLAS_OP_UNINSTALL) {
-        if (!dev_path(job->target, P_BACKUP_ELF, backup, sizeof(backup)))
-            return ATLAS_EINVAL;
-        src = backup;
-    } else {
-        src = job->source;
-    }
+    if (!source_for(job, backup, sizeof(backup)))
+        return ATLAS_EINVAL;
+
+    src = backup[0] ? backup : job->source;
 
     /* A leftover from an interrupted run is not evidence of anything;
      * it is a partial file that would fail verification anyway. */
@@ -607,13 +671,10 @@ static atlas_err_t step_verify(atlas_install_job_t *job)
         || !dev_path(job->target, P_BOOT_BAK, rollback, sizeof(rollback)))
         return ATLAS_EINVAL;
 
-    if (job->op == ATLAS_OP_RESTORE || job->op == ATLAS_OP_UNINSTALL) {
-        if (!dev_path(job->target, P_BACKUP_ELF, source, sizeof(source)))
-            return ATLAS_EINVAL;
-        origin = source;
-    } else {
-        origin = job->source;
-    }
+    if (!source_for(job, source, sizeof(source)))
+        return ATLAS_EINVAL;
+
+    origin = source[0] ? source : job->source;
 
     err = atlas_file_crc32(staged, &crc_new, on_progress, NULL);
     if (err != ATLAS_OK)
@@ -665,6 +726,14 @@ static atlas_err_t step_verify(atlas_install_job_t *job)
     if (dev_path(job->target, P_MARKER, marker, sizeof(marker))) {
         if (job->op == ATLAS_OP_UNINSTALL || job->op == ATLAS_OP_RESTORE) {
             atlas_file_remove(marker);
+        } else if (job->op == ATLAS_OP_ROLLBACK) {
+            /*
+             * Left exactly as it is. The card still boots AtlasPS2, so
+             * the marker must stay - but the build now live is the
+             * previous one, whose version this program has no way to
+             * know. Stamping it with our own would make the marker a
+             * lie, and the marker's only job is to be believed.
+             */
         } else {
             char note[128];
             int n = snprintf(note, sizeof(note),

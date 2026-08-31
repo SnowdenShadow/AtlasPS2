@@ -12,6 +12,58 @@ pre-release milestones, not a stable interface.
 
 ### Added
 
+- **Milestone 7 - recovery mode.** Holding L1+R1 while the console
+  powers on comes up in Recovery instead of the normal interface: no
+  configuration is read, no theme is loaded, and video is forced to the
+  safe NTSC 4:3 defaults. It is the screen for the case where AtlasPS2
+  itself is what is broken, so it assumes nothing survived.
+- Recovery is its own **root**, not a screen pushed over Home. Home is
+  drawn from a configuration this boot deliberately did not read, and a
+  Back that fell through to it would land the user in the thing they
+  held two buttons to escape. The way out is the "Start AtlasPS2
+  normally" entry, or the one that returns to the PS2 Browser - both
+  things a user can read before choosing.
+- Its seven options are ordered safest first: start normally, reset the
+  configuration, disable a custom theme, restore the previous version,
+  install an update from USB, change card, return to the Browser. The
+  two that change what the console boots ask a second time; the two that
+  only touch a settings file do not, because a confirmation on every
+  entry trains a user to press through the one that matters.
+- Reset writes the defaults through the same atomic path everything else
+  uses, so the previous `ATLAS.INI` survives as `ATLAS.INI.BAK` - the
+  fix is reversible with a card reader, which is what the on-screen text
+  promises. Disabling a theme rewrites only the theme name and leaves
+  the rest of the user's settings alone: clearing their video mode to
+  fix their colours would be a repair that breaks something else. On a
+  console with no readable configuration at all it writes nothing and
+  says so, rather than quietly doing what Reset does.
+- **The install engine now lives in the shared tree** (`src/core/`) and
+  both ELFs link it. Recovery needs reinstall and rollback, which is
+  exactly what the installer already does; a second transactional
+  `BOOT.ELF` swap would have been two chances to get the rollback wrong,
+  with only one of them exercised on any given run. The progress screen
+  moved with it, so the "do not remove the card" line has one home.
+- A new operation, `ATLAS_OP_ROLLBACK`: swap `BOOT/BOOT.ELF` with
+  `BOOT/BOOT.BAK` to return to the AtlasPS2 build that was live before
+  the last update. It is **not** Restore, which reaches past every
+  AtlasPS2 build to whatever booted the console originally. Because it
+  is a swap rather than a copy, doing it twice returns to where it
+  started - and it is offered only on a card AtlasPS2 actually boots,
+  so a `BOOT.BAK` left by someone else's installer is never swapped in.
+  The `INSTALLED.TXT` marker is left untouched by a rollback: the live
+  build is now the previous one, whose version this program has no way
+  to know, and a marker that lies is worse than one that is stale.
+- Updates from USB read `mass:/ATLAS_UPDATE/ATLASPS2.ELF` first, ahead
+  of every other search location - a stick holding both a fresh download
+  and last month's copy in its root should not install last month's. A
+  missing stick is reported beside the entry the user pressed rather
+  than behind a screen transition that looks like the copy started.
+- The per-operation source path is now derived in one place
+  (`source_for()`), used by check, copy and verify alike. Copy and
+  verify must agree on it or verification compares the staged file
+  against something it was never made from; check uses it to fail
+  immediately rather than after three steps have reported success.
+
 - **Milestone 6 - the installer.** `ATLAS_INSTALLER.ELF`, a second
   program built from the same tree, that puts AtlasPS2 onto a Memory
   Card and can take it off again. It is separate rather than a screen
@@ -63,7 +115,7 @@ pre-release milestones, not a stable interface.
   to press through the one that matters.
 - The installer reads no configuration, no theme and no language file.
   It runs before any of those exist on the card, and its own text is
-  compiled in - the same table the launcher uses, now 94 strings in both
+  compiled in - the same table the launcher uses, now 116 strings in both
   languages.
 - `make installer` builds it; `make all-elf` builds both. Objects live
   in their own tree: the two programs compile the same sources with the

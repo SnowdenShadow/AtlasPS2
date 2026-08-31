@@ -40,9 +40,7 @@ IRX_OBJ = $(IRX_LIST:%=build/irx/%_irx.o)
 
 EE_SRC = \
 	installer/src/main.c \
-	installer/src/install.c \
 	installer/src/ins_menu.c \
-	installer/src/ins_run.c \
 	installer/src/ins_bootstrap.c \
 	src/core/err.c \
 	src/core/log.c \
@@ -55,6 +53,7 @@ EE_SRC = \
 	src/core/config.c \
 	src/core/config_io.c \
 	src/core/power.c \
+	src/core/install.c \
 	src/boot/boot.c \
 	src/video/video.c \
 	src/video/video_cfg.c \
@@ -64,6 +63,7 @@ EE_SRC = \
 	src/ui/theme.c \
 	src/ui/ui.c \
 	src/ui/screen.c \
+	src/ui/screen_install_run.c \
 	src/ui/assets/font_ui.c \
 	src/ui/assets/font_title.c
 
@@ -84,9 +84,9 @@ EE_OBJS = $(EE_SRC:%.c=$(OBJ_DIR)/%.o) $(IRX_OBJ)
 
 MODE_STAMP = build/.imode.$(MODE)
 
-# installer/include comes first so install.h and ins_screen.h are found
-# by their bare names; -Isrc is what lets the shared UI sources reach
-# their asset headers.
+# installer/include comes first so ins_screen.h is found by its bare
+# name; -Isrc is what lets the shared UI sources reach their asset
+# headers.
 EE_INCS    += -Iinstaller/include -Iinclude -Isrc -Ibuild/irx \
               -I$(PS2SDK)/ports/include -I$(GSKIT)/include
 EE_LDFLAGS += -L$(GSKIT)/lib -L$(PS2SDK)/ports/lib

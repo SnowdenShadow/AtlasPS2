@@ -138,7 +138,7 @@ static void start(menu_state_t *st, atlas_install_op_t op)
     atlas_install_job_t job;
 
     atlas_install_begin(&job, op, st->target);
-    atlas_screen_push(atlas_ins_screen_run(&job));
+    atlas_screen_push(atlas_screen_install_run(&job));
 }
 
 static void activate(menu_state_t *st)

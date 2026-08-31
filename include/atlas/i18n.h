@@ -219,6 +219,10 @@ extern "C" {
                                             "Sauvegarde restaur\xc3\xa9""e.") \
     X(INS_OK_UNINSTALL,"ins.ok.uninstall",  "AtlasPS2 was removed.",         \
                                             "AtlasPS2 a \xc3\xa9t\xc3\xa9 supprim\xc3\xa9.") \
+    X(INS_OK_ROLLBACK, "ins.ok.rollback",                                    \
+        "The previous version was put back.",                                \
+        "La version pr\xc3\xa9""c\xc3\xa9""dente a \xc3\xa9t\xc3\xa9 remise " \
+        "en place.")                                                         \
     X(INS_RESTART,     "ins.restart",                                        \
         "Restart the console to use AtlasPS2.",                              \
         "Red\xc3\xa9marrez la console pour utiliser AtlasPS2.")               \
@@ -268,7 +272,78 @@ extern "C" {
         "Celui qu'il faut d\xc3\xa9pend du mod\xc3\xa8le et de la ROM de la " \
         "console, et un mauvais choix peut rendre la carte m\xc3\xa9moire "  \
         "ind\xc3\xa9marrable. Installez votre exploit avec un outil "        \
-        "pr\xc3\xa9vu pour cela, puis revenez ici.")
+        "pr\xc3\xa9vu pour cela, puis revenez ici.")                          \
+                                                                             \
+    /* ------------------------------------------------------------------ */\
+    /* Recovery.                                                           */\
+    /*                                                                     */\
+    /* Reached by holding L1+R1 at boot, and read by someone whose         */\
+    /* console is not working. Every line here is written for a user who   */\
+    /* does not know what went wrong: the labels say what will happen to   */\
+    /* their console, not what the code does. "Reset configuration" is a   */\
+    /* file operation; "Your settings return to their defaults" is what    */\
+    /* the user needs to decide with.                                      */\
+    /* ------------------------------------------------------------------ */\
+    X(REC_TITLE,       "rec.title",         "AtlasPS2 Recovery",             \
+                                            "R\xc3\xa9""cup\xc3\xa9ration AtlasPS2") \
+    X(REC_INTRO,       "rec.intro",                                          \
+        "Started in recovery mode. No settings or theme were loaded.",       \
+        "D\xc3\xa9marr\xc3\xa9 en mode r\xc3\xa9""cup\xc3\xa9ration. Aucun "  \
+        "r\xc3\xa9glage ni th\xc3\xa8me n'a \xc3\xa9t\xc3\xa9 charg\xc3\xa9.") \
+    X(REC_CONTINUE,    "rec.continue",      "Start AtlasPS2 normally",       \
+                                            "D\xc3\xa9marrer AtlasPS2 normalement") \
+    X(REC_D_CONTINUE,  "rec.d.continue",                                     \
+        "Leave recovery and open the normal interface.",                     \
+        "Quitter la r\xc3\xa9""cup\xc3\xa9ration et ouvrir l'interface "     \
+        "normale.")                                                          \
+    X(REC_RESET_CFG,   "rec.reset_cfg",     "Reset configuration",           \
+                                            "R\xc3\xa9initialiser la configuration") \
+    X(REC_D_RESET_CFG, "rec.d.reset_cfg",                                    \
+        "Settings return to their defaults. The old file is kept as "        \
+        "ATLAS.INI.BAK.",                                                    \
+        "Les r\xc3\xa9glages reviennent aux valeurs par d\xc3\xa9""faut. "   \
+        "L'ancien fichier est conserv\xc3\xa9 sous ATLAS.INI.BAK.")           \
+    X(REC_NO_THEME,    "rec.no_theme",      "Disable custom theme",          \
+                                            "D\xc3\xa9sactiver le th\xc3\xa8me personnalis\xc3\xa9") \
+    X(REC_D_NO_THEME,  "rec.d.no_theme",                                     \
+        "Go back to the built-in appearance. Nothing is deleted.",           \
+        "Revenir \xc3\xa0 l'apparence int\xc3\xa9gr\xc3\xa9""e. Rien n'est "  \
+        "supprim\xc3\xa9.")                                                   \
+    X(REC_ROLLBACK,    "rec.rollback",      "Restore previous version",      \
+                                            "Restaurer la version pr\xc3\xa9""c\xc3\xa9""dente") \
+    X(REC_D_ROLLBACK,  "rec.d.rollback",                                     \
+        "Put back the AtlasPS2 build that was here before the last "         \
+        "update.",                                                           \
+        "Remettre la version d'AtlasPS2 pr\xc3\xa9sente avant la "           \
+        "derni\xc3\xa8re mise \xc3\xa0 jour.")                                \
+    X(REC_UPDATE,      "rec.update",        "Install update from USB",       \
+                                            "Installer la mise \xc3\xa0 jour depuis l'USB") \
+    X(REC_D_UPDATE,    "rec.d.update",                                       \
+        "Copy ATLASPS2.ELF from mass:/ATLAS_UPDATE/ onto the Memory Card.",  \
+        "Copier ATLASPS2.ELF depuis mass:/ATLAS_UPDATE/ sur la carte "       \
+        "m\xc3\xa9moire.")                                                    \
+    X(REC_BROWSER,     "rec.browser",       "Return to PS2 Browser",         \
+                                            "Retourner au navigateur PS2")   \
+    X(REC_D_BROWSER,   "rec.d.browser",                                      \
+        "Leave AtlasPS2 and go back to the console's own menu.",             \
+        "Quitter AtlasPS2 et revenir au menu de la console.")                \
+    X(REC_TARGET,      "rec.target",        "Memory Card",   "Carte m\xc3\xa9moire") \
+    X(REC_SWITCH,      "rec.switch",        "Change card",   "Changer de carte") \
+    X(REC_D_SWITCH,    "rec.d.switch",                                       \
+        "Work on the other Memory Card slot.",                               \
+        "Travailler sur l'autre port de carte m\xc3\xa9moire.")               \
+    X(REC_DONE_CFG,    "rec.done.cfg",      "Configuration reset.",          \
+                                            "Configuration r\xc3\xa9initialis\xc3\xa9""e.") \
+    X(REC_DONE_THEME,  "rec.done.theme",    "Built-in appearance restored.", \
+                                            "Apparence int\xc3\xa9gr\xc3\xa9""e r\xc3\xa9tablie.") \
+    X(REC_E_FAILED,    "rec.e.failed",                                       \
+        "That did not work. Nothing was changed.",                           \
+        "Cela n'a pas fonctionn\xc3\xa9. Rien n'a \xc3\xa9t\xc3\xa9 "        \
+        "modifi\xc3\xa9.")                                                    \
+    X(REC_E_NOUSB,     "rec.e.nousb",                                        \
+        "No update found in mass:/ATLAS_UPDATE/.",                           \
+        "Aucune mise \xc3\xa0 jour trouv\xc3\xa9""e dans "                    \
+        "mass:/ATLAS_UPDATE/.")
 
 typedef enum {
 #define ATLAS_STR_ENUM(id, name, en, fr) ATLAS_STR_##id,

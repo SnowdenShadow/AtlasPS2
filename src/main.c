@@ -308,12 +308,18 @@ int main(int argc, char *argv[])
     load_settings(&keys);
 
     /*
-     * From here the interface owns the frame loop. Recovery, when it
-     * exists, will branch to its own root screen here instead of Home -
-     * the hotkey is already latched.
+     * From here the interface owns the frame loop.
+     *
+     * Recovery is a different ROOT, not a screen pushed over Home:
+     * Home is drawn from a configuration that was deliberately not read
+     * this boot, and a Back that fell through to it would land the user
+     * in the thing they held two buttons to escape. Recovery offers
+     * "Start normally" as its own entry, which is the only way from one
+     * to the other.
      */
     atlas_ui_set_fonts(font_ui, font_title);
-    atlas_screen_reset(atlas_screen_home());
+    atlas_screen_reset(keys.recovery ? atlas_screen_recovery()
+                                     : atlas_screen_home());
     atlas_screen_run();
 
     atlas_device_shutdown();
