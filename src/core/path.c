@@ -60,3 +60,60 @@ atlas_err_t atlas_path_join(const char *base, const char *rel,
 
     return ATLAS_OK;
 }
+
+atlas_err_t atlas_path_pretty_name(const char *filename, char *out, int size)
+{
+    const char *base, *dot, *p;
+    int n, i;
+
+    if (!filename || !out || size <= 0)
+        return ATLAS_EINVAL;
+
+    /* Both separators: a path may come from a FAT volume. */
+    base = filename;
+    for (p = filename; *p; p++) {
+        if (*p == '/' || *p == '\\' || *p == ':')
+            base = p + 1;
+    }
+
+    /*
+     * A trailing separator leaves nothing after it. Fall back to the
+     * whole input: a directory path is not what this is for, but an
+     * empty label is a row the user cannot identify, and that is the
+     * one outcome worth ruling out everywhere.
+     */
+    if (*base == '\0')
+        base = filename;
+
+    /*
+     * The LAST dot, so "OPL.v1.2.ELF" loses only ".ELF". A leading dot
+     * is not an extension marker - a file called ".ELF" has that as its
+     * whole name, and stripping it would leave nothing to display.
+     */
+    dot = NULL;
+    for (p = base; *p; p++) {
+        if (*p == '.' && p != base)
+            dot = p;
+    }
+
+    n = dot ? (int)(dot - base) : (int)strlen(base);
+
+    /*
+     * Nothing left after stripping means the input was all extension.
+     * Show the filename itself rather than an empty row the user cannot
+     * identify.
+     */
+    if (n == 0)
+        n = (int)strlen(base);
+
+    if (n > size - 1)
+        n = size - 1;
+
+    for (i = 0; i < n; i++) {
+        char c = base[i];
+        out[i] = (c == '_' || c == '-') ? ' ' : c;
+    }
+
+    out[n] = '\0';
+    return ATLAS_OK;
+}

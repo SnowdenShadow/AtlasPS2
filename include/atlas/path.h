@@ -38,6 +38,24 @@ extern "C" {
 atlas_err_t atlas_path_join(const char *base, const char *rel,
                             char *out, int size);
 
+/**
+ * Turn a filename into something worth showing a user: strip the
+ * directory and the extension, and turn '_' and '-' into spaces.
+ *
+ * Case is left alone. "uLaunchELF" is how its author writes it, and a
+ * title-casing pass would render it "Ulaunchelf" - the derived name is
+ * a fallback for homebrew that shipped no metadata, so it should look
+ * like the filename its author chose, only tidier.
+ *
+ * A name that does not fit is truncated here, unlike a path: this
+ * result is only ever displayed, never opened, so a short one costs a
+ * clipped label rather than the wrong file. An empty or extension-only
+ * input yields the input unchanged, so nothing is ever labelled "".
+ *
+ * @return ATLAS_OK, or ATLAS_EINVAL for a bad argument.
+ */
+atlas_err_t atlas_path_pretty_name(const char *filename, char *out, int size);
+
 #ifdef __cplusplus
 }
 #endif

@@ -117,7 +117,9 @@ static void home_update(atlas_screen_t *self)
     if (atlas_input_is_pressed(ATLAS_BTN_CONFIRM)) {
         const home_entry_t *e = &s_entries[st->cursor];
 
-        if (strcmp(e->label, "Devices") == 0)
+        if (strcmp(e->label, "Applications") == 0)
+            atlas_screen_push(atlas_screen_apps());
+        else if (strcmp(e->label, "Devices") == 0)
             atlas_screen_push(atlas_screen_devices());
         else if (strcmp(e->label, "System Info") == 0)
             atlas_screen_push(atlas_screen_sysinfo());

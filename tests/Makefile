@@ -13,7 +13,7 @@
 CC     ?= cc
 CFLAGS += -Wall -Wextra -O1 -I../include -Ihost
 
-TESTS = test_utf8 test_path
+TESTS = test_utf8 test_path test_ini
 
 .PHONY: check clean
 
@@ -24,6 +24,9 @@ test_utf8: test_utf8.c ../src/core/utf8.c
 	$(CC) $(CFLAGS) -o $@ $^
 
 test_path: test_path.c ../src/core/path.c
+	$(CC) $(CFLAGS) -o $@ $^
+
+test_ini: test_ini.c ../src/core/ini.c
 	$(CC) $(CFLAGS) -o $@ $^
 
 clean:

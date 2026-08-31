@@ -12,6 +12,41 @@ pre-release milestones, not a stable interface.
 
 ### Added
 
+- **Milestone 4 - applications.** Homebrew is discovered on the attached
+  devices and launched from a list. Nothing has to be registered: the
+  user copies a folder or an ELF onto a card or a stick and it appears,
+  because a list they have to maintain is one more thing that goes stale
+  when a card moves between consoles.
+- `atlas_app_scan()` walks `ATLAS/APPS` on each Memory Card and both
+  `APPS` and `ATLAS/APPS` on USB, one level deep. A root holds either
+  loose ELFs or one folder per application - that is the whole
+  convention, and a deeper walk would let a stick holding a PC backup
+  stall the scan for minutes. Scanning happens on entering the screen or
+  on an explicit Triangle, never per frame.
+- `app.ini` supplies `name`, `elf` and `category`. When it names an ELF
+  that is not there - a typo, or a partial copy - the folder is scanned
+  instead of the application being dropped, because a folder the user
+  deliberately created should appear even when its metadata is wrong.
+  Without metadata the name is derived from the filename, keeping the
+  author's capitalisation: title-casing would render "uLaunchELF" as
+  "Ulaunchelf".
+- `atlas_ini_parse()`: a tolerant reader for files a user edits on a PC.
+  CRLF, comments, indentation and spacing are all accepted; a line it
+  cannot parse is skipped and counted rather than aborting the file, so
+  one bad line costs one setting. An oversized value is dropped, never
+  truncated - a shortened `elf=` names a different file. Parses a buffer
+  rather than a path, so it is covered by `make check` and will be
+  reused for `ATLAS.INI` and its `.BAK` recovery.
+- `atlas_launch_elf()` checks the ELF header before handing over the
+  console. The SDK's loader validates the magic with a trap instruction,
+  so giving it a file that is not a PS2 ELF does not return an error -
+  it raises an exception, and that is a black screen with no way back
+  but the power switch. The file is rejected while there is still a
+  screen to explain it on. Video, pad and the device layer are shut down
+  in the reverse of the order they came up, so the incoming program
+  finds a quiet machine rather than one with our DMA chains and
+  interrupt handlers still live.
+
 - **Milestone 3 - storage devices.** A unified layer over the two Memory
   Card slots, USB mass storage and (reserved) the internal HDD, plus a
   Devices screen.

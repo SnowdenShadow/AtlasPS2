@@ -34,17 +34,21 @@ EE_SRC = \
 	src/core/log.c \
 	src/core/utf8.c \
 	src/core/path.c \
+	src/core/ini.c \
 	src/core/power.c \
 	src/boot/boot.c \
 	src/video/video.c \
 	src/input/input.c \
 	src/device/device.c \
+	src/apps/app.c \
+	src/apps/launch.c \
 	src/ui/font.c \
 	src/ui/theme.c \
 	src/ui/ui.c \
 	src/ui/screen.c \
 	src/ui/screen_home.c \
 	src/ui/screen_devices.c \
+	src/ui/screen_apps.c \
 	src/ui/screen_sysinfo.c \
 	src/ui/screen_power.c \
 	src/ui/screen_todo.c \
@@ -75,7 +79,11 @@ MODE_STAMP = build/.mode.$(MODE)
 
 EE_INCS    += -Iinclude -Isrc -Ibuild/irx -I$(PS2SDK)/ports/include -I$(GSKIT)/include
 EE_LDFLAGS += -L$(GSKIT)/lib -L$(PS2SDK)/ports/lib
-EE_LIBS    += -lgskit -ldmakit -lpatches -lfileXio -lpadx -lmc -lpoweroff
+# -lelf-loader carries the loader that reads an ELF into EE RAM, resets
+# the IOP and jumps. It must come before -lpatches: it calls the SBV
+# patch helpers, and the linker resolves left to right.
+EE_LIBS    += -lgskit -ldmakit -lelf-loader -lpatches -lfileXio -lpadx \
+              -lmc -lpoweroff
 
 EE_CFLAGS  += -Wall -Wextra -Wno-unused-parameter
 

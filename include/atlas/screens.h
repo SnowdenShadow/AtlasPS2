@@ -24,6 +24,16 @@ atlas_screen_t *atlas_screen_home(void);
  */
 atlas_screen_t *atlas_screen_devices(void);
 
+/**
+ * The homebrew found on the attached devices, and launching it.
+ *
+ * Scans on entry and on an explicit rescan, never per frame: a walk
+ * over a Memory Card's directories costs a visible fraction of a
+ * second, and a screen that stutters while browsing is worse than one
+ * that needs a button press to refresh.
+ */
+atlas_screen_t *atlas_screen_apps(void);
+
 /** System information: version, video mode, module status. */
 atlas_screen_t *atlas_screen_sysinfo(void);
 
