@@ -143,6 +143,89 @@ static void test_overlong_override_is_dropped(void)
     assert(strcmp(atlas_str(ATLAS_STR_BACK), "Back") == 0);
 }
 
+/**
+ * A few strings are printf formats and the caller passes arguments the
+ * BUILT-IN text asks for. An override that changes the conversions -
+ * "%s" where the original had "%d", or an extra one that was never
+ * pushed - is a crash on a console with nowhere to report it, so it is
+ * refused and the built-in text stands.
+ */
+static void test_override_cannot_change_conversions(void)
+{
+    atlas_i18n_set_lang(ATLAS_LANG_EN);
+    atlas_i18n_clear_overrides();
+
+    /* The type must match: an int read as a pointer is the bad one. */
+    assert(atlas_i18n_set("dev.free_kb", "%s KB libres") == 0);
+
+    /* Adding a conversion reads an argument that was never passed. */
+    assert(atlas_i18n_set("dev.free_kb", "%d of %d KB free") == 0);
+
+    /* Dropping one is safe for printf but is far more likely a typo
+     * than an intention, and it silently loses the number. */
+    assert(atlas_i18n_set("dev.free_kb", "some space free") == 0);
+
+    /* Reordering the words around it is exactly what translating is. */
+    assert(atlas_i18n_set("dev.free_kb", "libres : %d Ko") == 1);
+    assert(strcmp(atlas_str(ATLAS_STR_DEV_FREE_KB), "libres : %d Ko") == 0);
+
+    /* A string with no conversions at all is unaffected. */
+    assert(atlas_i18n_set("action.back", "Retour") == 1);
+
+    /* ...including one where the translation introduces a percent sign
+     * as text, which printf would read as a conversion. */
+    assert(atlas_i18n_set("action.back", "100% back") == 0);
+    assert(strcmp(atlas_str(ATLAS_STR_BACK), "Retour") == 0);
+
+    atlas_i18n_clear_overrides();
+}
+
+/**
+ * Every conversion the English text has, the French text has too, in
+ * the same order.
+ *
+ * The caller writes one snprintf() and it runs in both languages, so a
+ * French string carrying "%s" where the English has "%d" is a wrong
+ * pointer at a call site that looks correct - and it would only ever
+ * happen on a French console. The check runs at build time instead.
+ *
+ * Deliberately not reusing the module's own comparison: this is
+ * checking the table, and a bug shared between the checker and the
+ * thing checked would hide exactly the case it exists to catch.
+ */
+static void test_translations_agree_on_conversions(void)
+{
+    int i;
+
+    for (i = 0; i < ATLAS_STR_COUNT; i++) {
+        const char *en = atlas_i18n_builtin(ATLAS_LANG_EN,
+                                            (atlas_str_id_t)i);
+        const char *fr = atlas_i18n_builtin(ATLAS_LANG_FR,
+                                            (atlas_str_id_t)i);
+
+        for (;;) {
+            while (*en && *en != '%')
+                en++;
+            while (*fr && *fr != '%')
+                fr++;
+
+            if (!*en || !*fr) {
+                /* One ran out of conversions before the other. */
+                assert(!*en && !*fr);
+                break;
+            }
+
+            /* '%' plus the next character covers "%d", "%s" and "%%".
+             * No string in the table uses a width or a flag; if one
+             * ever does, this needs to compare the whole run. */
+            assert(en[1] == fr[1]);
+
+            en += 2;
+            fr += 2;
+        }
+    }
+}
+
 static void test_switching_language_drops_overrides(void)
 {
     /* The overrides came from the previous language's file. Keeping
@@ -215,7 +298,9 @@ int main(void)
     test_overrides();
     test_blank_override_keeps_builtin();
     test_overlong_override_is_dropped();
+    test_override_cannot_change_conversions();
     test_switching_language_drops_overrides();
+    test_translations_agree_on_conversions();
     test_lookup_never_returns_empty();
     test_strings_are_valid_utf8();
 

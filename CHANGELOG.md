@@ -12,6 +12,55 @@ pre-release milestones, not a stable interface.
 
 ### Added
 
+- **Milestone 8 - the video screen.** The Home entry that opened a
+  placeholder now opens the settings AtlasVideo has always had: display
+  mode, aspect, screen position and margin, edited with Left and Right
+  and applied to the picture immediately.
+- **A change to the mode or the aspect reverts on its own** unless the
+  user confirms it from inside the new mode. This is the one screen
+  whose settings can destroy the means of using it - a television that
+  cannot lock onto 480p shows nothing, and a user who cannot see the
+  menu cannot press Back to leave it. The rule is that no press can
+  leave a screen the user cannot read, and neither can the absence of
+  one. Circle during the countdown reverts immediately rather than
+  making a user who *can* see the screen sit out the timer.
+- The fallback is read from the running video module, not from
+  `ATLAS.INI`. On a boot where R1 skipped the stored settings the file
+  names a mode that was deliberately never applied, and reverting to it
+  would drop the user into the thing they held a button to escape. Two
+  changes in a row both fall back to the last mode a user actually
+  confirmed, not to the previous unconfirmed attempt.
+- Position and margin are not guarded that way, and they do not re-open
+  the screen either: `atlas_video_set_trim()` moves the picture without
+  a mode switch, because a black frame and a TV re-syncing between every
+  press makes an adjustment done by eye impossible to perform.
+- Nothing is written until Save is chosen, and Save rewrites only the
+  `[video]` block of an `ATLAS.INI` that is read first - a video setting
+  should not cost the user their language. Reset is the screen's own
+  copy only, so a reset nobody meant costs a trip back through the menu
+  rather than their settings.
+- AUTO shows what it resolved to (`auto (pal)`), since "auto" alone does
+  not tell someone whose picture is rolling what the console decided -
+  which is the first thing they need to know. The mode values are not
+  translated: they are the same tokens that go into `ATLAS.INI`, and a
+  French screen naming them differently would send a user looking for
+  something the file does not contain.
+- The screen says, in both languages, that the mode sets the output
+  signal only and the interface is always drawn at 640x448 or 640x512.
+  A user selecting 480p is exactly the user about to assume otherwise.
+- The clamp limits moved to `config.h`. A screen that let a user pick an
+  offset the parser clamps would write a file that reads back different,
+  and the setting would appear to change on its own at the next boot.
+- **A language file can no longer break a format string.** Four strings
+  are `printf` formats and the caller passes the arguments the built-in
+  text asks for, so an override writing `%s` where the original had `%d`
+  reads an int as a pointer - on a console with nowhere to report it.
+  Overrides whose conversions differ are refused and the built-in text
+  stands; translators may still reorder the words around them freely.
+  `make check` also sweeps all 136 strings for English and French
+  agreeing on their conversions, using its own comparison rather than
+  the module's, so a bug shared between the two cannot hide the case.
+
 - **Milestone 7 - recovery mode.** Holding L1+R1 while the console
   powers on comes up in Recovery instead of the normal interface: no
   configuration is read, no theme is loaded, and video is forced to the

@@ -38,6 +38,16 @@ atlas_screen_t *atlas_screen_apps(void);
 /** System information: version, video mode, module status. */
 atlas_screen_t *atlas_screen_sysinfo(void);
 
+/**
+ * Video settings, applied live and confirmed before they are kept.
+ *
+ * The one screen whose settings can make the screen itself unreadable,
+ * so a change to the mode or the aspect reverts on its own unless the
+ * user confirms it from the new mode. Nothing is written to ATLAS.INI
+ * until the Save entry is chosen.
+ */
+atlas_screen_t *atlas_screen_video(void);
+
 /** Power options. Only the ones that can be performed safely appear. */
 atlas_screen_t *atlas_screen_power(void);
 

@@ -57,6 +57,7 @@ EE_SRC = \
 	src/ui/screen_devices.c \
 	src/ui/screen_apps.c \
 	src/ui/screen_sysinfo.c \
+	src/ui/screen_video.c \
 	src/ui/screen_power.c \
 	src/ui/screen_recovery.c \
 	src/ui/screen_install_run.c \

@@ -77,11 +77,36 @@ atlas_err_t atlas_video_init(const atlas_video_cfg_t *cfg);
 /** Re-open the screen with new settings. Safe to call at runtime. */
 atlas_err_t atlas_video_apply(const atlas_video_cfg_t *cfg);
 
+/**
+ * Change only the position and margin, without re-opening the screen.
+ *
+ * These four are the settings a user adjusts by eye, one press at a
+ * time, watching the picture move. Routing them through
+ * atlas_video_apply() would cost a full mode switch per press - a black
+ * frame and a television re-syncing - which makes the thing being
+ * adjusted impossible to see. The mode and the aspect are untouched.
+ */
+void atlas_video_set_trim(int offset_x, int offset_y,
+                          int overscan_x, int overscan_y);
+
 /** Release the GS. Call before launching another ELF. */
 void atlas_video_shutdown(void);
 
 /** Non-zero once atlas_video_init() has succeeded. */
 int atlas_video_ready(void);
+
+/**
+ * The settings the screen is currently open with.
+ *
+ * Not the same thing as the [video] block of ATLAS.INI: holding R1 at
+ * boot skips the stored settings entirely, and the settings screen
+ * applies changes live before anything is written. A revert has to
+ * restore what is actually on the television, so it reads this.
+ *
+ * Still holds AUTO where the user chose AUTO - use atlas_video_mode()
+ * for what AUTO resolved to.
+ */
+const atlas_video_cfg_t *atlas_video_cfg(void);
 
 /* ------------------------------------------------------------------ */
 /* Frame cycle                                                         */

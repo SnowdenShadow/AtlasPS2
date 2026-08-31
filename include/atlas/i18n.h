@@ -53,6 +53,7 @@ extern "C" {
     X(CANCEL,          "action.cancel",     "Cancel",         "Annuler")     \
     X(CONFIRM,         "action.confirm",    "Confirm",        "Confirmer")   \
     X(OK,              "action.ok",         "OK",             "OK")          \
+    X(CHANGE,          "action.change",     "Change",         "Modifier")    \
     /* Home. */                                                              \
     X(HOME_WELCOME,    "home.welcome",      "Welcome",        "Bienvenue")   \
     X(HOME_GAMES,      "home.games",        "Games",          "Jeux")        \
@@ -71,9 +72,6 @@ extern "C" {
     X(HOME_D_FILES,    "home.d.files",                                       \
         "Copy, move and delete files across devices.",                       \
         "Copier, d\xc3\xa9placer et supprimer des fichiers.")                 \
-    X(HOME_D_VIDEO,    "home.d.video",                                       \
-        "Display mode, aspect ratio and screen position.",                   \
-        "Mode d'affichage, format d'image et position de l'\xc3\xa9""cran.") \
     X(HOME_D_SETTINGS, "home.d.settings",                                    \
         "Language, controls, devices and updates.",                          \
         "Langue, commandes, p\xc3\xa9riph\xc3\xa9riques et mises \xc3\xa0 jour.") \
@@ -343,7 +341,76 @@ extern "C" {
     X(REC_E_NOUSB,     "rec.e.nousb",                                        \
         "No update found in mass:/ATLAS_UPDATE/.",                           \
         "Aucune mise \xc3\xa0 jour trouv\xc3\xa9""e dans "                    \
-        "mass:/ATLAS_UPDATE/.")
+        "mass:/ATLAS_UPDATE/.")                                              \
+                                                                             \
+    /* ------------------------------------------------------------------ */\
+    /* Video settings.                                                     */\
+    /*                                                                     */\
+    /* The values themselves - "auto", "ntsc", "pal", "480p", "4:3" - are  */\
+    /* not here. They are the same tokens in both languages and the same   */\
+    /* tokens that go into ATLAS.INI, so translating them would mean a     */\
+    /* user reading a French screen could not find what they saw in the    */\
+    /* file.                                                               */\
+    /* ------------------------------------------------------------------ */\
+    X(VID_MODE,        "vid.mode",          "Display mode",   "Mode d'affichage") \
+    X(VID_D_MODE,      "vid.d.mode",                                         \
+        "AUTO follows the console's region. 480p needs a component or VGA "  \
+        "cable.",                                                            \
+        "AUTO suit la r\xc3\xa9gion de la console. Le 480p exige un c\xc3\xa2""ble " \
+        "composantes ou VGA.")                                               \
+    X(VID_ASPECT,      "vid.aspect",        "Aspect ratio",   "Format d'image") \
+    X(VID_D_ASPECT,    "vid.d.aspect",                                       \
+        "Changes how the interface is drawn. It does not change how a "      \
+        "game runs.",                                                        \
+        "Change le dessin de l'interface. Cela ne change rien au "           \
+        "fonctionnement d'un jeu.")                                          \
+    X(VID_OFFSET_X,    "vid.offset_x",      "Horizontal position",           \
+                                            "Position horizontale")          \
+    X(VID_OFFSET_Y,    "vid.offset_y",      "Vertical position",             \
+                                            "Position verticale")            \
+    X(VID_D_OFFSET,    "vid.d.offset",                                       \
+        "Moves the picture on a television where it sits off-centre.",       \
+        "D\xc3\xa9place l'image sur un t\xc3\xa9l\xc3\xa9viseur o\xc3\xb9 elle est " \
+        "d\xc3\xa9""centr\xc3\xa9""e.")                                       \
+    X(VID_OVERSCAN_X,  "vid.overscan_x",    "Horizontal margin",             \
+                                            "Marge horizontale")             \
+    X(VID_OVERSCAN_Y,  "vid.overscan_y",    "Vertical margin",               \
+                                            "Marge verticale")               \
+    X(VID_D_OVERSCAN,  "vid.d.overscan",                                     \
+        "Extra margin for a television that cuts off the edges.",            \
+        "Marge suppl\xc3\xa9mentaire pour un t\xc3\xa9l\xc3\xa9viseur qui rogne " \
+        "les bords.")                                                        \
+    X(VID_RESET,       "vid.reset",         "Reset to defaults",             \
+                                            "R\xc3\xa9tablir les valeurs par d\xc3\xa9""faut") \
+    X(VID_D_RESET,     "vid.d.reset",                                        \
+        "Back to AUTO with no adjustments. Nothing is written yet.",         \
+        "Retour \xc3\xa0 AUTO sans aucun r\xc3\xa9glage. Rien n'est encore "  \
+        "\xc3\xa9""crit.")                                                    \
+    X(VID_SAVE,        "vid.save",          "Save",           "Enregistrer") \
+    X(VID_D_SAVE,      "vid.d.save",                                         \
+        "Write these settings to ATLAS.INI so they survive a restart.",      \
+        "\xc3\x89""crire ces r\xc3\xa9glages dans ATLAS.INI pour qu'ils "     \
+        "survivent \xc3\xa0 un red\xc3\xa9marrage.")                          \
+    X(VID_KEEP,        "vid.keep",          "Keep this display mode?",       \
+                                            "Conserver ce mode d'affichage ?") \
+    X(VID_KEEP_BODY,   "vid.keep.body",                                      \
+        "Going back to the previous mode in %d s. If you cannot read "       \
+        "this, wait.",                                                       \
+        "Retour au mode pr\xc3\xa9""c\xc3\xa9""dent dans %d s. Si vous ne "   \
+        "lisez pas ceci, attendez.")                                         \
+    X(VID_REVERTED,    "vid.reverted",      "Previous display mode restored.", \
+                                            "Mode d'affichage pr\xc3\xa9""c\xc3\xa9""dent r\xc3\xa9tabli.") \
+    X(VID_SAVED,       "vid.saved",         "Video settings saved.",         \
+                                            "R\xc3\xa9glages vid\xc3\xa9o enregistr\xc3\xa9s.") \
+    X(VID_E_SAVE,      "vid.e.save",                                         \
+        "Could not save. No device could be written to.",                    \
+        "Enregistrement impossible. Aucun p\xc3\xa9riph\xc3\xa9rique n'a pu " \
+        "\xc3\xaatre \xc3\xa9""crit.")                                        \
+    X(VID_NOTE,        "vid.note",                                           \
+        "Output signal only: the interface is always drawn at 640x448 or "   \
+        "640x512.",                                                          \
+        "Signal de sortie uniquement : l'interface est toujours dessin\xc3\xa9""e " \
+        "en 640x448 ou 640x512.")
 
 typedef enum {
 #define ATLAS_STR_ENUM(id, name, en, fr) ATLAS_STR_##id,

@@ -43,6 +43,17 @@ typedef enum {
 #define ATLAS_CFG_THEME_MAX 32
 #define ATLAS_CFG_PATH_MAX  128
 
+/*
+ * The range the [video] trim settings are clamped to on load.
+ *
+ * Public because the settings screen has to stop at the same numbers
+ * the parser does. A screen that let a user pick 90 would write a file
+ * that reads back as 64, and the setting would change on its own the
+ * next time the console started.
+ */
+#define ATLAS_CFG_OFFSET_LIMIT   32
+#define ATLAS_CFG_OVERSCAN_LIMIT 64
+
 /** The whole of ATLAS.INI, as a struct. */
 typedef struct {
     /* [system] */

@@ -21,8 +21,10 @@
 /* closer to that intent than falling back to zero would be.           */
 /* ------------------------------------------------------------------ */
 
-#define CFG_OFFSET_LIMIT   32   /* matches the range video.h documents */
-#define CFG_OVERSCAN_LIMIT 64
+/* In the header: the settings screen clamps to the same numbers, and
+ * two copies of a limit is one place for them to disagree. */
+#define CFG_OFFSET_LIMIT   ATLAS_CFG_OFFSET_LIMIT
+#define CFG_OVERSCAN_LIMIT ATLAS_CFG_OVERSCAN_LIMIT
 
 /*
  * Longest auto-launch countdown offered. AtlasPS2 draws no clock while

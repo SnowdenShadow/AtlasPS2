@@ -223,6 +223,36 @@ int atlas_video_ready(void)
     return s_gs != NULL;
 }
 
+const atlas_video_cfg_t *atlas_video_cfg(void)
+{
+    return &s_cfg;
+}
+
+void atlas_video_set_trim(int offset_x, int offset_y,
+                          int overscan_x, int overscan_y)
+{
+    s_cfg.offset_x   = offset_x;
+    s_cfg.offset_y   = offset_y;
+    s_cfg.overscan_x = overscan_x;
+    s_cfg.overscan_y = overscan_y;
+
+    if (!s_gs)
+        return;
+
+    /*
+     * Unconditional, unlike open_screen(), which skips the call when
+     * both offsets are zero because it is setting up a screen that has
+     * none. Here zero is a value the user just chose, and not applying
+     * it would leave the picture wherever the previous value put it.
+     */
+    gsKit_set_display_offset(s_gs,
+                             ATLAS_CLAMP(s_cfg.offset_x, -64, 64),
+                             ATLAS_CLAMP(s_cfg.offset_y, -64, 64));
+
+    /* The overscan pair needs nothing: it is not a GS register, only an
+     * inset that atlas_video_safe_*() applies as it is read. */
+}
+
 /* ------------------------------------------------------------------ */
 /* Frame cycle                                                         */
 /* ------------------------------------------------------------------ */
