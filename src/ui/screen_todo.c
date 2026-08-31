@@ -6,6 +6,9 @@
 #include "atlas/ui.h"
 #include "atlas/input.h"
 #include "atlas/video.h"
+#include "atlas/i18n.h"
+
+#include <stdio.h>
 
 /*
  * A menu entry that opens a black screen is indistinguishable from a
@@ -51,9 +54,13 @@ static void todo_draw(atlas_screen_t *self)
     }
 
     atlas_ui_text(x, y, ATLAS_ALIGN_LEFT, t->warn,
-                  "Not implemented yet in this build.");
+                  atlas_str(ATLAS_STR_TODO_BODY));
 
-    atlas_ui_footer("O  Back");
+    {
+        char hints[64];
+        snprintf(hints, sizeof(hints), "O  %s", atlas_str(ATLAS_STR_BACK));
+        atlas_ui_footer(hints);
+    }
 }
 
 static atlas_screen_t s_screen = {
@@ -66,7 +73,7 @@ static atlas_screen_t s_screen = {
 
 atlas_screen_t *atlas_screen_todo(const char *title, const char *detail)
 {
-    s_state.title = title ? title : "Coming soon";
+    s_state.title = title ? title : atlas_str(ATLAS_STR_TODO_TITLE);
     s_state.detail = detail;
 
     /* The screen's displayed name follows whatever opened it. */

@@ -9,6 +9,7 @@
 #include "atlas/input.h"
 #include "atlas/video.h"
 #include "atlas/device.h"
+#include "atlas/i18n.h"
 
 /*
  * The first place a user looks when a Memory Card or a stick does not
@@ -24,10 +25,10 @@
 static const char *state_label(const atlas_device_t *d)
 {
     switch (d->state) {
-    case ATLAS_DEV_READY:       return "Ready";
-    case ATLAS_DEV_UNFORMATTED: return "Not formatted";
-    case ATLAS_DEV_ERROR:       return "Error";
-    default:                    return "Not connected";
+    case ATLAS_DEV_READY:       return atlas_str(ATLAS_STR_DEV_READY);
+    case ATLAS_DEV_UNFORMATTED: return atlas_str(ATLAS_STR_DEV_UNFORMATTED);
+    case ATLAS_DEV_ERROR:       return atlas_str(ATLAS_STR_DEV_ERROR);
+    default:                    return atlas_str(ATLAS_STR_DEV_ABSENT);
     }
 }
 
@@ -64,10 +65,11 @@ static void devices_draw(atlas_screen_t *self)
     float y;
     int i;
 
-    atlas_ui_header("Devices");
+    atlas_ui_header(atlas_str(ATLAS_STR_HOME_DEVICES));
 
     y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
-    atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text, "Devices");
+    atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text,
+                        atlas_str(ATLAS_STR_HOME_DEVICES));
     y += lh * 2.2f;
 
     for (i = 0; i < ATLAS_DEV_COUNT; i++) {
@@ -96,14 +98,21 @@ static void devices_draw(atlas_screen_t *self)
          * would defeat the point of the screen.
          */
         if (d->state == ATLAS_DEV_READY) {
-            char buf[64];
+            char buf[96];
+            char amount[48];
 
+            /* The free-space phrase is one translated string with a %d
+             * in it, not "%d" plus a word: French puts the number in a
+             * different place relative to the unit, and splitting it
+             * would make that impossible to express. */
             if (d->free_kb >= 0)
-                snprintf(buf, sizeof(buf), "%s   %d KB free",
-                         d->path, d->free_kb);
+                snprintf(amount, sizeof(amount),
+                         atlas_str(ATLAS_STR_DEV_FREE_KB), d->free_kb);
             else
-                snprintf(buf, sizeof(buf), "%s   free space unknown",
-                         d->path);
+                snprintf(amount, sizeof(amount), "%s",
+                         atlas_str(ATLAS_STR_DEV_FREE_UNKNOWN));
+
+            snprintf(buf, sizeof(buf), "%s   %s", d->path, amount);
 
             atlas_ui_text_clipped(x + (float)ATLAS_UI_PAD, y, t->text_dim,
                                   buf, w - (float)ATLAS_UI_PAD * 2.0f);
@@ -115,7 +124,11 @@ static void devices_draw(atlas_screen_t *self)
         }
     }
 
-    atlas_ui_footer("O  Back");
+    {
+        char hints[64];
+        snprintf(hints, sizeof(hints), "O  %s", atlas_str(ATLAS_STR_BACK));
+        atlas_ui_footer(hints);
+    }
 }
 
 static atlas_screen_t s_screen = {

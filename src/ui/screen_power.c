@@ -2,13 +2,14 @@
  * AtlasPS2 - screen_power.c
  * The power menu.
  */
-#include <string.h>
+#include <stdio.h>
 
 #include "atlas/screens.h"
 #include "atlas/ui.h"
 #include "atlas/input.h"
 #include "atlas/video.h"
 #include "atlas/power.h"
+#include "atlas/i18n.h"
 
 /*
  * Entries are built at enter() time rather than being a fixed table,
@@ -26,8 +27,8 @@ typedef enum {
 
 typedef struct {
     power_action_t action;
-    const char *label;
-    const char *detail;
+    atlas_str_id_t label;
+    atlas_str_id_t detail;   /* ATLAS_STR_COUNT for "no detail" */
 } power_entry_t;
 
 typedef struct {
@@ -45,20 +46,20 @@ static void power_enter(atlas_screen_t *self)
     int n = 0;
 
     st->entries[n].action = ACT_BROWSER;
-    st->entries[n].label  = "Return to PS2 Browser";
-    st->entries[n].detail = "Leave AtlasPS2 and start the console browser.";
+    st->entries[n].label  = ATLAS_STR_POWER_BROWSER;
+    st->entries[n].detail = ATLAS_STR_POWER_D_BROWSER;
     n++;
 
     if (atlas_power_can_shutdown()) {
         st->entries[n].action = ACT_SHUTDOWN;
-        st->entries[n].label  = "Power Off";
-        st->entries[n].detail = "Shut the console down.";
+        st->entries[n].label  = ATLAS_STR_POWER_OFF;
+        st->entries[n].detail = ATLAS_STR_POWER_D_OFF;
         n++;
     }
 
     st->entries[n].action = ACT_CANCEL;
-    st->entries[n].label  = "Cancel";
-    st->entries[n].detail = NULL;
+    st->entries[n].label  = ATLAS_STR_CANCEL;
+    st->entries[n].detail = ATLAS_STR_COUNT;
     n++;
 
     st->count = n;
@@ -136,32 +137,41 @@ static void power_draw(atlas_screen_t *self)
     float x = (float)ATLAS_UI_PAD;
     float y;
     int i;
+    char hints[96];
 
-    atlas_ui_header("Power");
+    atlas_ui_header(atlas_str(ATLAS_STR_HOME_POWER));
 
     y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
-    atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text, "Power");
+    atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text,
+                        atlas_str(ATLAS_STR_HOME_POWER));
     y += atlas_ui_line_height() * 2.2f;
 
     for (i = 0; i < st->count; i++) {
         atlas_ui_menu_row(x, y, row_w, i == st->cursor,
-                          st->entries[i].label, NULL);
+                          atlas_str(st->entries[i].label), NULL);
         y += (float)(ATLAS_UI_ROW_H + ATLAS_UI_ROW_GAP);
     }
 
-    if (st->entries[st->cursor].detail) {
+    if (st->entries[st->cursor].detail != ATLAS_STR_COUNT) {
         y += atlas_ui_line_height() * 0.5f;
         atlas_ui_text_clipped(x, y, t->text_dim,
-                              st->entries[st->cursor].detail,
+                              atlas_str(st->entries[st->cursor].detail),
                               sw - (float)ATLAS_UI_PAD * 2.0f);
     }
 
-    atlas_ui_footer("X  Select     O  Back");
+    snprintf(hints, sizeof(hints), "X  %s     O  %s",
+             atlas_str(ATLAS_STR_SELECT), atlas_str(ATLAS_STR_BACK));
+    atlas_ui_footer(hints);
 
-    if (st->confirming)
-        atlas_ui_message_box(st->entries[st->cursor].label,
-                             st->entries[st->cursor].detail,
-                             "X  Confirm     O  Cancel");
+    if (st->confirming) {
+        snprintf(hints, sizeof(hints), "X  %s     O  %s",
+                 atlas_str(ATLAS_STR_CONFIRM), atlas_str(ATLAS_STR_CANCEL));
+        atlas_ui_message_box(
+            atlas_str(st->entries[st->cursor].label),
+            st->entries[st->cursor].detail != ATLAS_STR_COUNT
+                ? atlas_str(st->entries[st->cursor].detail) : NULL,
+            hints);
+    }
 }
 
 static atlas_screen_t s_screen = {

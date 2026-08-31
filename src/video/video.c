@@ -31,40 +31,8 @@ static int                s_dma_ready;
 #define ATLAS_SAFE_INSET_X_PCT 6
 #define ATLAS_SAFE_INSET_Y_PCT 6
 
-/* ------------------------------------------------------------------ */
-/* Configuration                                                       */
-/* ------------------------------------------------------------------ */
-
-void atlas_video_cfg_defaults(atlas_video_cfg_t *cfg)
-{
-    if (!cfg)
-        return;
-
-    memset(cfg, 0, sizeof(*cfg));
-    cfg->mode   = ATLAS_VMODE_AUTO;
-    cfg->aspect = ATLAS_ASPECT_AUTO;
-}
-
-const char *atlas_video_mode_label(atlas_vmode_t mode)
-{
-    switch (mode) {
-    case ATLAS_VMODE_AUTO: return "auto";
-    case ATLAS_VMODE_NTSC: return "ntsc";
-    case ATLAS_VMODE_PAL:  return "pal";
-    case ATLAS_VMODE_480P: return "480p";
-    default:               return "auto";
-    }
-}
-
-const char *atlas_video_aspect_label(atlas_aspect_t aspect)
-{
-    switch (aspect) {
-    case ATLAS_ASPECT_AUTO: return "auto";
-    case ATLAS_ASPECT_4_3:  return "4:3";
-    case ATLAS_ASPECT_16_9: return "16:9";
-    default:                return "auto";
-    }
-}
+/* The settings struct and its text labels live in video_cfg.c, which
+ * carries no gsKit dependency and is therefore host-testable. */
 
 /* ------------------------------------------------------------------ */
 /* Mode resolution                                                     */

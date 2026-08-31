@@ -12,6 +12,58 @@ pre-release milestones, not a stable interface.
 
 ### Added
 
+- **Milestone 5 - configuration and translations.** Settings survive a
+  power cycle, and every word on screen comes from a table that can be
+  replaced from a Memory Card.
+- `atlas_i18n_*`: English and French, with French as the reference
+  translation. Both languages are compiled into the ELF and a file only
+  ever *overrides* a string, never supplies one - Recovery has to draw a
+  readable screen when the Memory Card is exactly what failed, and a
+  launcher whose error messages live on the device that broke shows a
+  blank screen at the one moment it matters. Keys are an enum, so a
+  lookup is an array index rather than a hash of a string, and the
+  X-macro table carries the key, its file name and both translations on
+  one row: a key cannot be added without a French string, because there
+  is nowhere to put it the compiler will accept.
+- `make lang` writes `lang/en.ini` and `lang/fr.ini` from those same
+  tables, so the shipped files and the built-in text cannot drift. Drop
+  one at `mc0:/ATLAS/LANG/fr.ini` to change wording without rebuilding.
+  A key that is deleted, blank or misspelled falls back to the built-in
+  text, so a half-finished translation is safe to leave on the card.
+- `ATLAS.INI`, read from `ATLAS/CONFIG/` on the first device that has
+  one, Memory Cards before USB - a stick that happens to be plugged in
+  should not quietly take over the configuration of the console that
+  borrowed it. It is a plain text file because the fix for a bad setting
+  has to be something a user can do with a card reader and Notepad.
+- Loading never fails: parsing starts from the defaults, so a partial
+  file still produces a whole configuration, and an out-of-range number
+  is clamped rather than rejected. Numbers are validated character by
+  character before conversion, because `atoi()` reads "left" as 0 - a
+  legal offset - and a typo would silently become a setting the user
+  never chose. A file with more than eight unreadable lines is treated
+  as damaged and `ATLAS.INI.BAK` is tried instead: a previous version of
+  the user's own settings beats defaults by a long way.
+- `atlas_file_write_atomic()` writes `<file>.NEW`, rotates the old file
+  to `.BAK`, then renames. The window between truncating a file and
+  finishing the write is not theoretical - it is a card holding a
+  zero-byte `ATLAS.INI`. This is the shape the transactional `BOOT.ELF`
+  update will reuse.
+- Recovery reads no configuration at all - a recovery mode that loads
+  the file it is meant to repair is no recovery at all - and safe video
+  (R1) still loads the language but ignores the stored `[video]` block.
+- Every screen now draws through `atlas_str()`. The Home menu no longer
+  dispatches by comparing its own labels, which would have stopped
+  working the moment they were translated, and would have stopped
+  working silently: the French build would have opened the placeholder
+  from rows that name a real screen.
+- `make check` covers both new modules: the string tables (every key
+  non-empty in both languages, key names unique, overrides, and a UTF-8
+  sweep asserting every byte stays inside the range the font atlas
+  covers) and the configuration parser (clamping, tolerant booleans, and
+  a format-then-parse round trip comparing all thirteen fields
+  individually, since a `memcmp` would pass on padding and hide a field
+  the formatter forgot to write).
+
 - **Milestone 4 - applications.** Homebrew is discovered on the attached
   devices and launched from a list. Nothing has to be registered: the
   user copies a folder or an ELF onto a card or a stick and it appears,

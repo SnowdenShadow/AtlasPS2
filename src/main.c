@@ -3,6 +3,7 @@
  * Entry point and the top-level boot sequence.
  */
 #include <stdio.h>
+#include <string.h>
 
 #include <gsKit.h>
 #include <kernel.h>
@@ -10,6 +11,8 @@
 
 #include "atlas/atlas.h"
 #include "atlas/boot.h"
+#include "atlas/config.h"
+#include "atlas/i18n.h"
 #include "atlas/video.h"
 #include "atlas/input.h"
 #include "atlas/device.h"
@@ -164,6 +167,70 @@ static void splash_loop(atlas_font_t *title, atlas_font_t *ui,
 }
 
 /* ------------------------------------------------------------------ */
+/* Settings                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Read ATLAS.INI and apply what it says.
+ *
+ * Called after the device layer is up and after something is already on
+ * screen, so that everything here can fail without costing a picture.
+ *
+ * Two of the three settings are applied unconditionally. The video
+ * settings are not: a mode this television cannot display leaves a user
+ * with a black screen and a configuration they cannot reach to fix, so
+ * holding R1 at boot skips them entirely. That is the escape hatch, and
+ * it only works if it is honoured here rather than in the video module,
+ * which has no idea a hotkey exists.
+ */
+static void load_settings(const boot_hotkeys_t *keys)
+{
+    atlas_config_t cfg;
+    atlas_config_origin_t origin;
+    atlas_video_cfg_t running;
+    int i;
+
+    /*
+     * Recovery deliberately reads nothing: it exists for the case where
+     * the stored configuration is what broke the console, and a
+     * recovery mode that loads the file it is meant to repair is no
+     * recovery at all.
+     */
+    if (keys->recovery) {
+        ATLAS_LOG("CFG", "recovery: configuration not read");
+        return;
+    }
+
+    /*
+     * One poll only touches one device, so a full sweep takes as many
+     * calls as there are devices. Without this the first read would run
+     * before any card had been looked at and always find nothing.
+     */
+    for (i = 0; i < ATLAS_DEV_COUNT; i++)
+        atlas_device_poll();
+
+    atlas_config_load(&cfg, &origin);
+
+    atlas_i18n_set_lang(cfg.lang);
+    atlas_i18n_load_overrides();
+
+    if (keys->safe_video) {
+        ATLAS_LOG("CFG", "safe video: stored video settings skipped");
+        return;
+    }
+
+    /*
+     * Re-opening the screen with identical settings would still cost a
+     * mode change and a visible flicker, so it is skipped when the file
+     * asked for what is already running.
+     */
+    atlas_video_cfg_defaults(&running);
+
+    if (memcmp(&cfg.video, &running, sizeof(running)) != 0)
+        atlas_video_apply(&cfg.video);
+}
+
+/* ------------------------------------------------------------------ */
 /* Entry point                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -196,10 +263,15 @@ int main(int argc, char *argv[])
     keys = read_hotkeys();
 
     /*
-     * Milestone 1 uses the safe defaults unconditionally; the stored
-     * configuration is not read until the config module exists. The
-     * hotkeys are already latched so the later milestones only have to
-     * choose whether to apply what they read.
+     * The screen comes up on safe defaults first, before the stored
+     * configuration is read.
+     *
+     * That ordering is deliberate and costs one mode change: reading
+     * the configuration needs the device layer, the device layer needs
+     * time to find a Memory Card, and if that whole sequence ran before
+     * anything was displayed then a console that hangs while probing a
+     * failing card would hang on a black screen. Coming up first means
+     * every failure after this line has somewhere to be reported.
      */
     atlas_video_cfg_defaults(&vcfg);
 
@@ -232,6 +304,8 @@ int main(int argc, char *argv[])
      * finds it.
      */
     atlas_device_init(status.memcard, status.usb);
+
+    load_settings(&keys);
 
     /*
      * From here the interface owns the frame loop. Recovery, when it

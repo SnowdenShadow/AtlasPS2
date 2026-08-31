@@ -35,9 +35,14 @@ EE_SRC = \
 	src/core/utf8.c \
 	src/core/path.c \
 	src/core/ini.c \
+	src/core/i18n.c \
+	src/core/file.c \
+	src/core/config.c \
+	src/core/config_io.c \
 	src/core/power.c \
 	src/boot/boot.c \
 	src/video/video.c \
+	src/video/video_cfg.c \
 	src/input/input.c \
 	src/device/device.c \
 	src/apps/app.c \
@@ -92,7 +97,7 @@ ifeq ($(DEBUG),1)
 EE_CFLAGS  += -DATLAS_DEBUG=1
 endif
 
-.PHONY: all debug check clean fonts
+.PHONY: all debug check clean fonts lang
 
 # The SDK's default flags carry DWARF info, which triples the ELF for no
 # benefit on a console with no debugger attached. A release build strips
@@ -154,6 +159,27 @@ fonts:
 		src/ui/assets/font_ui --name=ui
 	python3 tools/genfont.py $(FONT_DIR)/DejaVuSans-Bold.ttf 24 \
 		src/ui/assets/font_title --name=title
+
+# ------------------------------------------------------------------ #
+# Translation files                                                   #
+#                                                                     #
+# lang/en.ini and lang/fr.ini are complete copies of the tables built #
+# into the ELF, generated from them so the two cannot drift. They     #
+# ship as editable overrides, not as the source of the strings: the   #
+# built-in copy is what Recovery draws with when the card that would  #
+# have held these files is exactly what failed.                       #
+# ------------------------------------------------------------------ #
+
+# Built with the HOST compiler, not the EE one: the generator runs here,
+# on the build machine. tests/host supplies the one PS2SDK type header
+# atlas.h needs, the same way the self-checks get it.
+HOSTCC ?= cc
+
+lang:
+	@mkdir -p build lang
+	$(HOSTCC) -Wall -Wextra -O1 -Iinclude -Itests/host \
+		-o build/genlang tools/genlang.c src/core/i18n.c
+	./build/genlang lang
 
 # ------------------------------------------------------------------ #
 # Self-checks                                                         #

@@ -13,21 +13,35 @@
 CC     ?= cc
 CFLAGS += -Wall -Wextra -O1 -I../include -Ihost
 
-TESTS = test_utf8 test_path test_ini
+# The headers are prerequisites too: i18n.h carries the string table
+# itself, so a binary that ignored it would keep reporting the count it
+# was built with and quietly pass a check on strings it never saw.
+HDRS = $(wildcard ../include/atlas/*.h host/*.h)
+
+TESTS = test_utf8 test_path test_ini test_i18n test_config
 
 .PHONY: check clean
 
 check: $(TESTS)
 	@for t in $(TESTS); do ./$$t || exit 1; done
 
-test_utf8: test_utf8.c ../src/core/utf8.c
-	$(CC) $(CFLAGS) -o $@ $^
+test_utf8: test_utf8.c ../src/core/utf8.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
 
-test_path: test_path.c ../src/core/path.c
-	$(CC) $(CFLAGS) -o $@ $^
+test_path: test_path.c ../src/core/path.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
 
-test_ini: test_ini.c ../src/core/ini.c
-	$(CC) $(CFLAGS) -o $@ $^
+test_ini: test_ini.c ../src/core/ini.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
+
+test_i18n: test_i18n.c ../src/core/i18n.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
+
+# config.c pulls in video.h for the [video] section. video_cfg.c holds
+# the parts of that module with no gsKit dependency, which is exactly
+# why it is a separate file.
+test_config: test_config.c ../src/core/config.c ../src/core/ini.c ../src/core/i18n.c ../src/video/video_cfg.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
 
 clean:
 	rm -f $(TESTS)

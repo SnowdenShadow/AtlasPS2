@@ -130,6 +130,16 @@ struct gsGlobal *atlas_video_gs(void);
 const char *atlas_video_mode_label(atlas_vmode_t mode);
 const char *atlas_video_aspect_label(atlas_aspect_t aspect);
 
+/**
+ * The reverse: text from ATLAS.INI to a setting.
+ *
+ * Unknown text gives AUTO rather than failing. A configuration naming a
+ * mode this build does not have should still produce a picture, and
+ * AUTO is the one value guaranteed to match the console's own region.
+ */
+atlas_vmode_t  atlas_video_mode_from_label(const char *s);
+atlas_aspect_t atlas_video_aspect_from_label(const char *s);
+
 #ifdef __cplusplus
 }
 #endif

@@ -3,7 +3,6 @@
  * The root menu.
  */
 #include <stdio.h>
-#include <string.h>
 
 #include "atlas/screens.h"
 #include "atlas/ui.h"
@@ -12,6 +11,7 @@
 #include "atlas/boot.h"
 #include "atlas/device.h"
 #include "atlas/atlas.h"
+#include "atlas/i18n.h"
 
 /* ------------------------------------------------------------------ */
 /* Entries                                                             */
@@ -21,20 +21,36 @@
 /* fewest presses to reach.                                            */
 /* ------------------------------------------------------------------ */
 
+/*
+ * Each row carries what it opens, rather than the dispatcher matching on
+ * the label. A translated menu is exactly the case where comparing text
+ * would stop working - and it would stop working silently, leaving the
+ * French build with rows that open the placeholder instead of the
+ * screen they name.
+ */
+typedef enum {
+    HOME_GO_TODO = 0,
+    HOME_GO_APPS,
+    HOME_GO_DEVICES,
+    HOME_GO_SYSINFO,
+    HOME_GO_POWER
+} home_target_t;
+
 typedef struct {
-    const char *label;
-    const char *detail; /* shown by the placeholder screen */
+    home_target_t  target;
+    atlas_str_id_t label;
+    atlas_str_id_t detail;  /* ATLAS_STR_COUNT for none; placeholder only */
 } home_entry_t;
 
 static const home_entry_t s_entries[] = {
-    { "Games",        "Browse and launch games from your devices." },
-    { "Applications", "Homebrew found on MC0, MC1, USB and HDD." },
-    { "File Manager", "Copy, move and delete files across devices." },
-    { "Devices",      NULL },
-    { "Video",        "Display mode, aspect ratio and screen position." },
-    { "Settings",     "Language, controls, devices and updates." },
-    { "System Info",  NULL },
-    { "Power",        NULL }
+    { HOME_GO_TODO,    ATLAS_STR_HOME_GAMES,    ATLAS_STR_HOME_D_GAMES    },
+    { HOME_GO_APPS,    ATLAS_STR_HOME_APPS,     ATLAS_STR_COUNT           },
+    { HOME_GO_TODO,    ATLAS_STR_HOME_FILES,    ATLAS_STR_HOME_D_FILES    },
+    { HOME_GO_DEVICES, ATLAS_STR_HOME_DEVICES,  ATLAS_STR_COUNT           },
+    { HOME_GO_TODO,    ATLAS_STR_HOME_VIDEO,    ATLAS_STR_HOME_D_VIDEO    },
+    { HOME_GO_TODO,    ATLAS_STR_HOME_SETTINGS, ATLAS_STR_HOME_D_SETTINGS },
+    { HOME_GO_SYSINFO, ATLAS_STR_HOME_SYSINFO,  ATLAS_STR_COUNT           },
+    { HOME_GO_POWER,   ATLAS_STR_HOME_POWER,    ATLAS_STR_COUNT           }
 };
 
 #define HOME_COUNT ((int)(sizeof(s_entries) / sizeof(s_entries[0])))
@@ -117,16 +133,31 @@ static void home_update(atlas_screen_t *self)
     if (atlas_input_is_pressed(ATLAS_BTN_CONFIRM)) {
         const home_entry_t *e = &s_entries[st->cursor];
 
-        if (strcmp(e->label, "Applications") == 0)
+        switch (e->target) {
+        case HOME_GO_APPS:
             atlas_screen_push(atlas_screen_apps());
-        else if (strcmp(e->label, "Devices") == 0)
+            break;
+        case HOME_GO_DEVICES:
             atlas_screen_push(atlas_screen_devices());
-        else if (strcmp(e->label, "System Info") == 0)
+            break;
+        case HOME_GO_SYSINFO:
             atlas_screen_push(atlas_screen_sysinfo());
-        else if (strcmp(e->label, "Power") == 0)
+            break;
+        case HOME_GO_POWER:
             atlas_screen_push(atlas_screen_power());
-        else
-            atlas_screen_push(atlas_screen_todo(e->label, e->detail));
+            break;
+        case HOME_GO_TODO:
+        default:
+            /*
+             * The placeholder is handed resolved text, not keys: it is
+             * the one screen whose title can also come from a caller
+             * that has no string id to give.
+             */
+            atlas_screen_push(atlas_screen_todo(
+                atlas_str(e->label),
+                e->detail != ATLAS_STR_COUNT ? atlas_str(e->detail) : NULL));
+            break;
+        }
     }
 
     if (atlas_input_is_pressed(ATLAS_BTN_SELECT))
@@ -145,6 +176,7 @@ static void home_draw(atlas_screen_t *self)
     float x = (float)ATLAS_UI_PAD;
     float y;
     int i;
+    char hints[128];
 
     atlas_ui_header(NULL);
     draw_indicators(sw - (float)ATLAS_UI_PAD,
@@ -152,16 +184,20 @@ static void home_draw(atlas_screen_t *self)
 
     y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
 
-    atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text, "Welcome");
+    atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text,
+                        atlas_str(ATLAS_STR_HOME_WELCOME));
     y += atlas_ui_line_height() * 2.2f;
 
     for (i = 0; i < HOME_COUNT; i++) {
         atlas_ui_menu_row(x, y, row_w, i == st->cursor,
-                          s_entries[i].label, NULL);
+                          atlas_str(s_entries[i].label), NULL);
         y += (float)(ATLAS_UI_ROW_H + ATLAS_UI_ROW_GAP);
     }
 
-    atlas_ui_footer("X  Select     SELECT  System Info     START  Power");
+    snprintf(hints, sizeof(hints), "X  %s     SELECT  %s     START  %s",
+             atlas_str(ATLAS_STR_SELECT), atlas_str(ATLAS_STR_HOME_SYSINFO),
+             atlas_str(ATLAS_STR_HOME_POWER));
+    atlas_ui_footer(hints);
 }
 
 static atlas_screen_t s_screen = {

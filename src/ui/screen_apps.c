@@ -3,7 +3,6 @@
  * The homebrew a scan found, and launching it.
  */
 #include <stdio.h>
-#include <string.h>
 
 #include "atlas/screens.h"
 #include "atlas/ui.h"
@@ -12,6 +11,7 @@
 #include "atlas/app.h"
 #include "atlas/launch.h"
 #include "atlas/device.h"
+#include "atlas/i18n.h"
 
 /*
  * The list scrolls rather than paginates: a user pressing Down past the
@@ -29,8 +29,8 @@ typedef struct {
      * the alternative is the user pressing X repeatedly at a row that
      * silently does nothing. It stays up until dismissed.
      */
-    int         failed;
-    const char *fail_reason;
+    int            failed;
+    atlas_str_id_t fail_reason;
 } apps_state_t;
 
 static apps_state_t s_state;
@@ -49,7 +49,7 @@ static void apps_enter(atlas_screen_t *self)
     apps_state_t *st = (apps_state_t *)self->data;
 
     st->failed = 0;
-    st->fail_reason = NULL;
+    st->fail_reason = ATLAS_STR_APPS_FAIL_OTHER;
 
     if (!atlas_app_scanned())
         atlas_app_scan();
@@ -67,15 +67,17 @@ static void apps_enter(atlas_screen_t *self)
 /* Update                                                              */
 /* ------------------------------------------------------------------ */
 
-static const char *launch_message(atlas_err_t err)
+/*
+ * The reason is kept as a key rather than as resolved text: the box can
+ * stay up across a language change, and a half-translated error is the
+ * last thing a user should have to read.
+ */
+static atlas_str_id_t launch_message(atlas_err_t err)
 {
     switch (err) {
-    case ATLAS_ENOENT:
-        return "The file is gone. Was the device removed?";
-    case ATLAS_EFORMAT:
-        return "This file is not a PS2 program.";
-    default:
-        return "The program could not be started.";
+    case ATLAS_ENOENT:  return ATLAS_STR_APPS_FAIL_GONE;
+    case ATLAS_EFORMAT: return ATLAS_STR_APPS_FAIL_FORMAT;
+    default:            return ATLAS_STR_APPS_FAIL_OTHER;
     }
 }
 
@@ -179,12 +181,14 @@ static void draw_empty(float x, float y, float w)
      * are about to ask.
      */
     atlas_ui_text(x, y, ATLAS_ALIGN_LEFT, t->text,
-                  "No applications found.");
+                  atlas_str(ATLAS_STR_APPS_EMPTY));
     y += lh * 1.6f;
 
     atlas_ui_text(x, y, ATLAS_ALIGN_LEFT, t->text_dim,
-                  "Copy an .ELF into one of these folders:");
+                  atlas_str(ATLAS_STR_APPS_EMPTY_HINT));
     y += lh * 1.4f;
+
+    /* The paths stay as they are: they are what has to be typed. */
 
     atlas_ui_text(x, y, ATLAS_ALIGN_LEFT, t->text_dim,
                   "   mc0:/ATLAS/APPS/      mc1:/ATLAS/APPS/");
@@ -194,8 +198,16 @@ static void draw_empty(float x, float y, float w)
     y += lh * 1.6f;
 
     atlas_ui_text_clipped(x, y, t->text_dim,
-                          "A folder with an app.ini can set the name; "
-                          "otherwise the filename is used.", w);
+                          atlas_str(ATLAS_STR_APPS_EMPTY_META), w);
+}
+
+static void draw_failure(const apps_state_t *st)
+{
+    char ok[32];
+
+    snprintf(ok, sizeof(ok), "X  %s", atlas_str(ATLAS_STR_OK));
+    atlas_ui_message_box(atlas_str(ATLAS_STR_APPS_FAIL_TITLE),
+                         atlas_str(st->fail_reason), ok);
 }
 
 static void apps_draw(atlas_screen_t *self)
@@ -209,19 +221,24 @@ static void apps_draw(atlas_screen_t *self)
     float y;
     int count = atlas_app_count();
     int i, last;
+    char hints[128];
 
-    atlas_ui_header("Applications");
+    atlas_ui_header(atlas_str(ATLAS_STR_HOME_APPS));
 
     y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
-    atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text, "Applications");
+    atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text,
+                        atlas_str(ATLAS_STR_HOME_APPS));
     y += lh * 2.2f;
 
     if (count == 0) {
         draw_empty(x, y, w);
-        atlas_ui_footer("Triangle  Rescan     O  Back");
+
+        snprintf(hints, sizeof(hints), "Triangle  %s     O  %s",
+                 atlas_str(ATLAS_STR_RESCAN), atlas_str(ATLAS_STR_BACK));
+        atlas_ui_footer(hints);
+
         if (st->failed)
-            atlas_ui_message_box("Could not launch", st->fail_reason,
-                                 "X  OK");
+            draw_failure(st);
         return;
     }
 
@@ -282,10 +299,13 @@ static void apps_draw(atlas_screen_t *self)
                 t->text_dim, a->path, w);
     }
 
-    atlas_ui_footer("X  Launch     Triangle  Rescan     O  Back");
+    snprintf(hints, sizeof(hints), "X  %s     Triangle  %s     O  %s",
+             atlas_str(ATLAS_STR_LAUNCH), atlas_str(ATLAS_STR_RESCAN),
+             atlas_str(ATLAS_STR_BACK));
+    atlas_ui_footer(hints);
 
     if (st->failed)
-        atlas_ui_message_box("Could not launch", st->fail_reason, "X  OK");
+        draw_failure(st);
 }
 
 static atlas_screen_t s_screen = {

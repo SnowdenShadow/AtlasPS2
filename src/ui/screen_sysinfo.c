@@ -10,11 +10,17 @@
 #include "atlas/video.h"
 #include "atlas/boot.h"
 #include "atlas/atlas.h"
+#include "atlas/i18n.h"
 
 /*
  * This screen exists so that "USB does not work" becomes a diagnosis
  * rather than a mystery. Every line names a subsystem and says whether
  * it is available, so a bug report can start from facts.
+ *
+ * The module names stay in English: "sio2man" and "bdmfs_fatfs" are
+ * what the SDK calls them and what a user searching for the problem
+ * will find, so translating them would make the screen less useful in
+ * the language it was translated into.
  */
 
 static void row(float x, float *y, float w, const char *label,
@@ -34,7 +40,7 @@ static void status_row(float x, float *y, float w, const char *label, int ok)
     const atlas_theme_t *t = atlas_theme();
 
     row(x, y, w, label,
-        ok ? "available" : "unavailable",
+        atlas_str(ok ? ATLAS_STR_SYS_AVAILABLE : ATLAS_STR_SYS_UNAVAILABLE),
         ok ? t->ok : t->text_dim);
 }
 
@@ -54,22 +60,24 @@ static void sysinfo_draw(atlas_screen_t *self)
     float y;
     char buf[64];
 
-    atlas_ui_header("System Info");
+    atlas_ui_header(atlas_str(ATLAS_STR_HOME_SYSINFO));
 
     y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
-    atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text, "System Info");
+    atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text,
+                        atlas_str(ATLAS_STR_HOME_SYSINFO));
     y += atlas_ui_line_height() * 2.2f;
 
-    row(x, &y, w, "Version", ATLAS_VERSION_STRING, t->accent);
-    row(x, &y, w, "Video mode", atlas_video_mode_name(), t->text);
+    row(x, &y, w, atlas_str(ATLAS_STR_SYS_VERSION), ATLAS_VERSION_STRING,
+        t->accent);
+    row(x, &y, w, atlas_str(ATLAS_STR_SYS_VIDEO_MODE),
+        atlas_video_mode_name(), t->text);
 
     snprintf(buf, sizeof(buf), "%d x %d",
              atlas_video_width(), atlas_video_height());
-    row(x, &y, w, "Framebuffer", buf, t->text);
+    row(x, &y, w, atlas_str(ATLAS_STR_SYS_RESOLUTION), buf, t->text);
 
-    snprintf(buf, sizeof(buf), "%s",
-             atlas_video_aspect() == ATLAS_ASPECT_16_9 ? "16:9" : "4:3");
-    row(x, &y, w, "Aspect", buf, t->text);
+    row(x, &y, w, atlas_str(ATLAS_STR_SYS_ASPECT),
+        atlas_video_aspect_label(atlas_video_aspect()), t->text);
 
     y += atlas_ui_line_height() * 0.5f;
     atlas_ui_separator(x, y, w, t->separator);
@@ -81,7 +89,8 @@ static void sysinfo_draw(atlas_screen_t *self)
     status_row(x, &y, w, "USB storage (bdm, fatfs)", st->usb);
     status_row(x, &y, w, "Power off", st->poweroff);
 
-    atlas_ui_footer("O  Back");
+    snprintf(buf, sizeof(buf), "O  %s", atlas_str(ATLAS_STR_BACK));
+    atlas_ui_footer(buf);
 }
 
 static atlas_screen_t s_screen = {
