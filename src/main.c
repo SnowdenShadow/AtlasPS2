@@ -12,6 +12,7 @@
 #include "atlas/boot.h"
 #include "atlas/video.h"
 #include "atlas/input.h"
+#include "atlas/device.h"
 #include "atlas/font.h"
 #include "atlas/theme.h"
 #include "atlas/ui.h"
@@ -225,6 +226,14 @@ int main(int argc, char *argv[])
     splash_loop(font_title, font_ui, &status, &keys);
 
     /*
+     * The device layer only caches; the IOP has been enumerating USB
+     * since its modules loaded, so by the time the user has read the
+     * splash a stick is usually already mounted and the first poll
+     * finds it.
+     */
+    atlas_device_init(status.memcard, status.usb);
+
+    /*
      * From here the interface owns the frame loop. Recovery, when it
      * exists, will branch to its own root screen here instead of Home -
      * the hotkey is already latched.
@@ -233,6 +242,7 @@ int main(int argc, char *argv[])
     atlas_screen_reset(atlas_screen_home());
     atlas_screen_run();
 
+    atlas_device_shutdown();
     atlas_font_destroy(font_title);
     atlas_font_destroy(font_ui);
     atlas_input_shutdown();

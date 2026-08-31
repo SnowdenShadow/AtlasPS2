@@ -12,6 +12,29 @@ pre-release milestones, not a stable interface.
 
 ### Added
 
+- **Milestone 3 - storage devices.** A unified layer over the two Memory
+  Card slots, USB mass storage and (reserved) the internal HDD, plus a
+  Devices screen.
+- `atlas_device_*`: one numbered slot per device with a mount path a
+  caller can hand straight to fileXio, so nothing above this layer knows
+  that a Memory Card is polled through libmc while a USB stick is a
+  mounted FAT volume. State is cached and refreshed one device per frame
+  from the update half of the loop - probing an empty slot blocks for
+  milliseconds, and a draw path that blocks turns 60 Hz into a stutter.
+  USB backs off between attempts while it is still enumerating.
+- A card that is present but unusable reports why: unformatted, a PS1
+  card, or unreadable. A missing row tells the user nothing they can act
+  on. The Devices screen shows those reasons, and the Home indicators
+  now read the real cache instead of inferring from which IOP modules
+  loaded.
+- `atlas_path_join()`: refuses rather than truncates, and leaves the
+  output buffer untouched when it does. A shortened path names a
+  different file that may well exist, and the file manager and installer
+  delete and overwrite through this. Covered by `make check`.
+- Release and debug builds no longer share object files. An object
+  records nothing about the flags that built it, so `make` after
+  `make debug` used to report a release ELF that still carried every log
+  string.
 - **Milestone 2 - graphical interface.** A dark theme, drawing primitives,
   a screen stack, and the Home, System Info, Power and placeholder
   screens.

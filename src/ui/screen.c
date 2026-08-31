@@ -9,6 +9,7 @@
 #include "atlas/input.h"
 #include "atlas/theme.h"
 #include "atlas/ui.h"
+#include "atlas/device.h"
 #include "atlas/log.h"
 
 static atlas_screen_t *s_stack[ATLAS_SCREEN_STACK_MAX];
@@ -161,6 +162,14 @@ void atlas_screen_run(void)
         atlas_screen_t *top = s_stack[s_depth - 1];
 
         atlas_input_update();
+
+        /*
+         * One device is probed per frame, so a full sweep costs four
+         * frames and no single frame pays for all four. Done here
+         * rather than in each screen because the header indicators are
+         * drawn everywhere, and draw must never block on hardware.
+         */
+        atlas_device_poll();
 
         if (top->update)
             top->update(top);

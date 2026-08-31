@@ -20,7 +20,7 @@
 #ifndef ATLAS_DEVICE_H
 #define ATLAS_DEVICE_H
 
-#include "atlas/err.h"
+#include "atlas/atlas.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -110,9 +110,9 @@ int atlas_device_ready_count(void);
  * different, existing file - and this layer is used by the file manager
  * and the installer, where writing to the wrong path destroys data.
  *
- * @return ATLAS_OK, ATLAS_EINVAL for a bad argument, ATLAS_ENOTFOUND if
- *         the device is not ready, or ATLAS_ERANGE if the result would
- *         not fit in `size`.
+ * @return ATLAS_OK, ATLAS_EINVAL for a bad argument or a result that
+ *         would not fit in `size`, or ATLAS_ENODEV if the device is not
+ *         ready.
  */
 atlas_err_t atlas_device_path(atlas_device_id_t id, const char *rel,
                               char *out, int size);

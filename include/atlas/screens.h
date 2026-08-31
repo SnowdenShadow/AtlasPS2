@@ -16,6 +16,14 @@ extern "C" {
 /** The root screen: the main menu and the device indicators. */
 atlas_screen_t *atlas_screen_home(void);
 
+/**
+ * Storage: what each slot holds and, when it is unusable, why.
+ *
+ * Polls while open, so a USB stick that takes seconds to enumerate
+ * appears without the user having to leave and come back.
+ */
+atlas_screen_t *atlas_screen_devices(void);
+
 /** System information: version, video mode, module status. */
 atlas_screen_t *atlas_screen_sysinfo(void);
 

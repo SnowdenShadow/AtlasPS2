@@ -33,22 +33,45 @@ EE_SRC = \
 	src/core/err.c \
 	src/core/log.c \
 	src/core/utf8.c \
+	src/core/path.c \
 	src/core/power.c \
 	src/boot/boot.c \
 	src/video/video.c \
 	src/input/input.c \
+	src/device/device.c \
 	src/ui/font.c \
 	src/ui/theme.c \
 	src/ui/ui.c \
 	src/ui/screen.c \
 	src/ui/screen_home.c \
+	src/ui/screen_devices.c \
 	src/ui/screen_sysinfo.c \
 	src/ui/screen_power.c \
 	src/ui/screen_todo.c \
 	src/ui/assets/font_ui.c \
 	src/ui/assets/font_title.c
 
-EE_OBJS = $(EE_SRC:%.c=build/obj/%.o) $(IRX_OBJ)
+# Release and debug objects live in separate trees. An object records
+# nothing about the flags that built it, so a shared tree would let
+# `make` after `make debug` relink debug objects into an ELF called a
+# release build - one that still carries every ATLAS_LOG string.
+ifeq ($(DEBUG),1)
+MODE = debug
+else
+MODE = release
+endif
+
+OBJ_DIR = build/obj/$(MODE)
+
+EE_OBJS = $(EE_SRC:%.c=$(OBJ_DIR)/%.o) $(IRX_OBJ)
+
+# The ELF is one path for both modes, so switching mode has to force a
+# relink: otherwise make finds the existing ELF newer than the other
+# tree's objects and leaves it alone, and `make` after `make debug`
+# reports a release build that still carries every log string. The
+# stamp rule itself is down in Rules, below `all`, so that it cannot
+# become the default goal.
+MODE_STAMP = build/.mode.$(MODE)
 
 EE_INCS    += -Iinclude -Isrc -Ibuild/irx -I$(PS2SDK)/ports/include -I$(GSKIT)/include
 EE_LDFLAGS += -L$(GSKIT)/lib -L$(PS2SDK)/ports/lib
@@ -79,7 +102,7 @@ debug:
 # Rules                                                               #
 #                                                                     #
 # Objects go under build/ rather than beside their sources, so a      #
-# clean is one rm and the tree stays readable. These pattern rules     #
+# clean is one rm and the tree stays readable. These pattern rules    #
 # are more specific than the SDK's %.o: %.c and therefore win.         #
 # ------------------------------------------------------------------ #
 
@@ -87,9 +110,18 @@ build/irx/%_irx.c: $(PS2SDK)/iop/irx/%.irx
 	$(DIR_GUARD)
 	$(PS2SDK)/bin/bin2c $< $@ $*_irx
 
-build/obj/%.o: %.c
+$(OBJ_DIR)/%.o: %.c
 	$(DIR_GUARD)
 	$(EE_C_COMPILE) -c $< -o $@
+
+# Only one stamp exists at a time, so a mode change always creates a
+# new one and the ELF, which depends on it, is always relinked.
+$(MODE_STAMP):
+	$(DIR_GUARD)
+	@rm -f build/.mode.*
+	@touch $@
+
+$(EE_BIN): $(MODE_STAMP)
 
 # The generated IRX sources must exist before any object is compiled,
 # not merely before the ones that include them: make expands the whole

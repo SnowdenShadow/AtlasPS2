@@ -10,6 +10,7 @@
 #include "atlas/input.h"
 #include "atlas/video.h"
 #include "atlas/boot.h"
+#include "atlas/device.h"
 #include "atlas/atlas.h"
 
 /* ------------------------------------------------------------------ */
@@ -29,6 +30,7 @@ static const home_entry_t s_entries[] = {
     { "Games",        "Browse and launch games from your devices." },
     { "Applications", "Homebrew found on MC0, MC1, USB and HDD." },
     { "File Manager", "Copy, move and delete files across devices." },
+    { "Devices",      NULL },
     { "Video",        "Display mode, aspect ratio and screen position." },
     { "Settings",     "Language, controls, devices and updates." },
     { "System Info",  NULL },
@@ -75,21 +77,22 @@ static float draw_indicator(float x, float y, const char *label, int online)
 }
 
 /**
- * Milestone 2 reports what the IOP module status implies rather than
- * probing the devices: the device layer does not exist yet, and the
- * spec is explicit that polling devices must never stall the UI. When
- * atlas_device_* lands this reads its cache, refreshed off the draw
- * path.
+ * Reads the device layer's cache, which the update half of the frame
+ * refreshes. Nothing here probes hardware: a draw path that blocks on a
+ * Memory Card slot turns a 60 Hz interface into a stuttering one.
+ *
+ * Either slot lights the MC dot, since the label covers both.
  */
 static void draw_indicators(float right_edge, float y)
 {
-    const atlas_boot_status_t *st = atlas_boot_status();
     float w = atlas_ui_text_width("MC") + atlas_ui_text_width("USB")
             + 6.0f * 2.0f + 5.0f * 2.0f + 16.0f;
     float x = right_edge - w;
+    int mc = atlas_device_is_ready(ATLAS_DEV_MC0)
+          || atlas_device_is_ready(ATLAS_DEV_MC1);
 
-    x = draw_indicator(x, y, "MC", st->memcard);
-    draw_indicator(x, y, "USB", st->usb);
+    x = draw_indicator(x, y, "MC", mc);
+    draw_indicator(x, y, "USB", atlas_device_is_ready(ATLAS_DEV_MASS));
 }
 
 /* ------------------------------------------------------------------ */
@@ -114,7 +117,9 @@ static void home_update(atlas_screen_t *self)
     if (atlas_input_is_pressed(ATLAS_BTN_CONFIRM)) {
         const home_entry_t *e = &s_entries[st->cursor];
 
-        if (strcmp(e->label, "System Info") == 0)
+        if (strcmp(e->label, "Devices") == 0)
+            atlas_screen_push(atlas_screen_devices());
+        else if (strcmp(e->label, "System Info") == 0)
             atlas_screen_push(atlas_screen_sysinfo());
         else if (strcmp(e->label, "Power") == 0)
             atlas_screen_push(atlas_screen_power());
