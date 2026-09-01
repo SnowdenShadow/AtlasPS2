@@ -16,6 +16,7 @@
 #include "atlas/video.h"
 #include "atlas/input.h"
 #include "atlas/device.h"
+#include "atlas/fav.h"
 #include "atlas/font.h"
 #include "atlas/theme.h"
 #include "atlas/ui.h"
@@ -223,6 +224,13 @@ static void load_settings(const boot_hotkeys_t *keys)
      */
     if (cfg.theme[0] != '\0' && strcmp(cfg.theme, "default") != 0)
         atlas_theme_load(cfg.theme);
+
+    /*
+     * Favorites are read here, in the one place a device sweep has
+     * already happened. Recovery returned above without them, which is
+     * correct: recovery lists nothing to launch.
+     */
+    atlas_fav_load();
 
     if (keys->safe_video) {
         ATLAS_LOG("CFG", "safe video: stored video settings skipped");

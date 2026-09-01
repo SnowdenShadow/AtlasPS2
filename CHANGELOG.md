@@ -12,6 +12,67 @@ pre-release milestones, not a stable interface.
 
 ### Added
 
+- **Favorites and a recently-used list.** Square marks the highlighted
+  application; the applications screen then grows a "Recently used" and
+  a "Favorites" group above the full list. Both are stored in
+  `ATLAS/CONFIG/FAVORITES.INI` on the first writable device, in the
+  same Memory-Cards-before-USB order the rest of the configuration
+  uses.
+- **A favorite is a path, not a row.** The catalogue is rebuilt every
+  time a device appears or disappears, so an index into it names a
+  different program an hour later. A stored path that does not
+  currently resolve is kept and simply not drawn: unplugging a USB
+  stick must not silently empty someone's favorites.
+- **A full favorites list refuses rather than evicting.** Dropping
+  somebody else's entry to make room for a new one loses something the
+  user never asked to lose, and they would find out by not finding it.
+- **The card is written only when something actually changed.**
+  Relaunching the program already at the top of the recent list is the
+  single most common thing that list ever sees, and it now costs no
+  write at all. The list is saved before the launch, not after: after a
+  successful launch this program has been replaced and there is no
+  "after" to write anything in.
+- **Milestone 9 - the file manager.** Browse every mounted device from
+  one tree, launch an ELF, copy, move, rename, create a folder, delete
+  a file, delete an empty folder. File sizes are shown, and the
+  clipboard says what is waiting and whether it is a copy or a move -
+  the two look identical until one of them removes the original.
+- **Dangerous operations ask, and the dialog names the file.** "Are
+  you sure?" over a box that does not repeat the target is how the
+  wrong thing gets deleted by somebody who was sure about a different
+  one. Cross only opens folders; everything that changes a file is
+  behind Square, so the button pressed on every other screen cannot
+  delete anything.
+- **System files ask a second time, with different words.** Deleting
+  `mc0:/BOOT.ELF` looks exactly like deleting anything else, and the
+  consequence arrives at the next power cycle, long after the user has
+  forgotten which row they were on. The second dialog says what happens
+  to the console rather than repeating the first one louder. The list
+  of protected paths is deliberately generous, and anchored: `BOOT.ELF`
+  at a card root is what the console starts, while one three folders
+  down is somebody's homebrew - warning about the second would teach
+  the user to press through the warning that matters.
+- **There is no recursive delete, and no recursive copy.** A D-pad, a
+  television and no undo is the worst place in computing to offer
+  "delete everything under here". A folder is emptied where the user
+  can see each thing go, and a non-empty folder is refused by
+  AtlasPS2 itself rather than trusted to a driver - some Memory Card
+  implementations remove one and leave its contents unreachable, which
+  is deleting them without asking.
+- **A move copies, verifies, then deletes.** Within one device it is a
+  rename and cannot half-succeed; across devices the copy is checksummed
+  back before the original goes, and a failure leaves the original
+  where it was and says so. A copy onto itself is refused: on most
+  drivers the destination is opened for writing before the source is
+  read, which truncates the file to nothing.
+- **Long copies keep drawing.** A frozen picture for the seconds a
+  700 KB write to a Memory Card takes reads as a hang, and the user's
+  reflex is to pull the card during the one operation that must not be
+  interrupted.
+- The path rules are a host-side self-check (`test_fs_path`, 9 suites
+  now). `atlas_fs_is_protected()` decides whether a user is warned at
+  all, and the only other way to find out it was wrong is to wreck a
+  Memory Card.
 - **Milestone 9 - themes.** A theme is a folder holding a `theme.ini`
   with fifteen colours in it, read from `ATLAS/THEMES/<Name>/` on a
   Memory Card or a USB stick. Memory Cards are searched before USB, the

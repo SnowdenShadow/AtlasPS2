@@ -19,7 +19,7 @@ CFLAGS += -Wall -Wextra -O1 -I../include -Ihost
 HDRS = $(wildcard ../include/atlas/*.h host/*.h)
 
 TESTS = test_utf8 test_path test_ini test_i18n test_config test_hash \
-        test_theme
+        test_theme test_fav test_fs_path
 
 .PHONY: check clean
 
@@ -56,6 +56,19 @@ test_hash: test_hash.c ../src/core/hash.c $(HDRS)
 # exactly what is wrong when a theme looks wrong, and a check that
 # needs a television is not a check.
 test_theme: test_theme.c ../src/ui/theme.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
+
+# fav.c is the lists themselves; fav_io.c reads and writes the card and
+# is not here. Order is the whole behaviour of a recently-used list, and
+# order is exactly what a check can pin without hardware.
+test_fav: test_fav.c ../src/core/fav.c ../src/core/ini.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
+
+# fs_path.c is why the split in fs.c exists. atlas_fs_is_protected()
+# decides whether a user is warned before deleting the file their
+# console boots from, and the only other way to find out it was wrong
+# is to wreck a Memory Card. fs.c itself calls fileXio and is not here.
+test_fs_path: test_fs_path.c ../src/core/fs_path.c $(HDRS)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
 
 clean:

@@ -40,6 +40,10 @@ EE_SRC = \
 	src/core/hash.c \
 	src/core/config.c \
 	src/core/config_io.c \
+	src/core/fav.c \
+	src/core/fav_io.c \
+	src/core/fs.c \
+	src/core/fs_path.c \
 	src/core/power.c \
 	src/core/install.c \
 	src/boot/boot.c \
@@ -57,6 +61,7 @@ EE_SRC = \
 	src/ui/screen_home.c \
 	src/ui/screen_devices.c \
 	src/ui/screen_apps.c \
+	src/ui/screen_files.c \
 	src/ui/screen_sysinfo.c \
 	src/ui/screen_video.c \
 	src/ui/screen_theme.c \

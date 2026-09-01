@@ -35,6 +35,17 @@ atlas_screen_t *atlas_screen_devices(void);
  */
 atlas_screen_t *atlas_screen_apps(void);
 
+/**
+ * The file manager: browse, launch, copy, move, rename, delete.
+ *
+ * Starts at the device list rather than inside one device, because
+ * "go up from mc0:/" is a question the drivers answer differently.
+ * Every operation that changes a file is behind the action menu and
+ * asks first; anything atlas_fs_is_protected() names asks a second
+ * time, with different words.
+ */
+atlas_screen_t *atlas_screen_files(void);
+
 /** System information: version, video mode, module status. */
 atlas_screen_t *atlas_screen_sysinfo(void);
 

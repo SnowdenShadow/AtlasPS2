@@ -109,6 +109,96 @@ extern "C" {
     X(APPS_FAIL_OTHER, "apps.fail.other",                                    \
         "The program could not be started.",                                 \
         "Le programme n'a pas pu \xc3\xaatre d\xc3\xa9marr\xc3\xa9.")        \
+    /*                                                                       \
+     * Favorites. These name the three groups the applications list is       \
+     * drawn in, so they are headings rather than commands - except the      \
+     * footer hint, which is what Square does to the highlighted row.        \
+     */                                                                      \
+    X(FAV_FAVORITES,   "fav.favorites",     "Favorites",      "Favoris")     \
+    X(FAV_RECENT,      "fav.recent",        "Recently used",                 \
+                                            "R\xc3\xa9""cemment utilis\xc3\xa9") \
+    X(FAV_ALL,         "fav.all",           "All applications",              \
+                                            "Toutes les applications")       \
+    X(FAV_TOGGLE,      "fav.toggle",        "Favorite",       "Favori")      \
+    /*                                                                       \
+     * File manager. The confirmations are written to name the file and      \
+     * say what will happen to it - "Are you sure?" over a dialog that       \
+     * does not repeat the target is how the wrong thing gets deleted.       \
+     */                                                                      \
+    X(FM_TITLE,        "fm.title",          "File Manager",                  \
+                                            "Gestionnaire de fichiers")      \
+    X(FM_EMPTY,        "fm.empty",          "This folder is empty.",         \
+                                            "Ce dossier est vide.")          \
+    X(FM_UP,           "fm.up",             "Up one level",                  \
+                                            "Dossier parent")                \
+    X(FM_TRUNCATED,    "fm.truncated",                                       \
+        "Too many files to show them all.",                                  \
+        "Trop de fichiers pour tous les afficher.")                          \
+    X(FM_UNREADABLE,   "fm.unreadable",     "This folder cannot be read.",   \
+                                            "Ce dossier ne peut pas "        \
+                                            "\xc3\xaatre lu.")               \
+    X(FM_MENU,         "fm.menu",           "Actions",        "Actions")     \
+    X(FM_OPEN,         "fm.open",           "Open",           "Ouvrir")      \
+    X(FM_LAUNCH,       "fm.launch",         "Launch",         "Lancer")      \
+    X(FM_COPY,         "fm.copy",           "Copy",           "Copier")      \
+    X(FM_MOVE,         "fm.move",           "Move",           "D\xc3\xa9placer") \
+    X(FM_PASTE,        "fm.paste",          "Paste here",     "Coller ici")  \
+    X(FM_DELETE,       "fm.delete",         "Delete",         "Supprimer")   \
+    X(FM_MKDIR,        "fm.mkdir",          "New folder",     "Nouveau dossier") \
+    X(FM_RENAME,       "fm.rename",         "Rename",         "Renommer")    \
+    X(FM_CLIPBOARD,    "fm.clipboard",      "Ready to paste:",               \
+                                            "\xc3\x80 coller :")             \
+    X(FM_D_COPY,       "fm.d.copy",                                          \
+        "Choose a folder, then Paste here.",                                 \
+        "Choisissez un dossier, puis Coller ici.")                           \
+    X(FM_Q_DELETE,     "fm.q.delete",       "Delete this file?",             \
+                                            "Supprimer ce fichier ?")        \
+    X(FM_Q_DELETE_DIR, "fm.q.delete_dir",   "Delete this folder?",           \
+                                            "Supprimer ce dossier ?")        \
+    X(FM_Q_OVERWRITE,  "fm.q.overwrite",                                     \
+        "A file with this name is already here. Replace it?",                \
+        "Un fichier de ce nom existe d\xc3\xa9j\xc3\xa0 ici. "               \
+        "Le remplacer ?")                                                    \
+    X(FM_W_SYSTEM,     "fm.w.system",                                        \
+        "This is a system file. Deleting it can stop the console "           \
+        "from starting.",                                                    \
+        "Ceci est un fichier syst\xc3\xa8me. Le supprimer peut "             \
+        "emp\xc3\xaa""cher la console de d\xc3\xa9marrer.")                  \
+    X(FM_W_AGAIN,      "fm.w.again",        "Delete it anyway?",             \
+                                            "Le supprimer quand m\xc3\xaame ?") \
+    X(FM_WORKING,      "fm.working",        "Working...",     "En cours...") \
+    X(FM_OK_DELETE,    "fm.ok.delete",      "Deleted.",       "Supprim\xc3\xa9.") \
+    X(FM_OK_COPY,      "fm.ok.copy",        "Copied.",        "Copi\xc3\xa9.") \
+    X(FM_OK_MOVE,      "fm.ok.move",        "Moved.",         "D\xc3\xa9plac\xc3\xa9.") \
+    X(FM_OK_MKDIR,     "fm.ok.mkdir",       "Folder created.",               \
+                                            "Dossier cr\xc3\xa9\xc3\xa9.")   \
+    X(FM_E_DELETE,     "fm.e.delete",       "It could not be deleted.",      \
+                                            "Suppression impossible.")       \
+    X(FM_E_NOTEMPTY,   "fm.e.notempty",                                      \
+        "This folder is not empty. Empty it first.",                         \
+        "Ce dossier n'est pas vide. Videz-le d'abord.")                      \
+    X(FM_E_COPY,       "fm.e.copy",         "The copy failed. "              \
+                                            "Nothing was changed here.",     \
+                                            "La copie a \xc3\xa9""chou\xc3\xa9. " \
+                                            "Rien n'a \xc3\xa9t\xc3\xa9 modifi\xc3\xa9 ici.") \
+    X(FM_E_MOVE,       "fm.e.move",         "The move failed. "              \
+                                            "The original is still there.",  \
+                                            "Le d\xc3\xa9placement a "       \
+                                            "\xc3\xa9""chou\xc3\xa9. "       \
+                                            "L'original est intact.")        \
+    X(FM_E_MKDIR,      "fm.e.mkdir",        "The folder could not be "       \
+                                            "created.",                     \
+                                            "Le dossier n'a pas pu "         \
+                                            "\xc3\xaatre cr\xc3\xa9\xc3\xa9.") \
+    X(FM_E_SAME,       "fm.e.same",         "The source and the "            \
+                                            "destination are the same.",     \
+                                            "La source et la destination "   \
+                                            "sont identiques.")              \
+    X(FM_E_NAME,       "fm.e.name",         "That name cannot be used "      \
+                                            "here.",                        \
+                                            "Ce nom ne peut pas "            \
+                                            "\xc3\xaatre utilis\xc3\xa9 ici.") \
+    X(FM_NEWDIR_NAME,  "fm.newdir_name",    "New folder",     "Nouveau dossier") \
     /* System information. */                                                \
     X(SYS_VERSION,     "sys.version",       "Version",        "Version")     \
     X(SYS_VIDEO_MODE,  "sys.video_mode",    "Video mode",     "Mode vid\xc3\xa9o") \
