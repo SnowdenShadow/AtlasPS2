@@ -30,6 +30,7 @@
  */
 typedef enum {
     HOME_GO_TODO = 0,
+    HOME_GO_GAMES,
     HOME_GO_APPS,
     HOME_GO_FILES,
     HOME_GO_DEVICES,
@@ -47,7 +48,7 @@ typedef struct {
 } home_entry_t;
 
 static const home_entry_t s_entries[] = {
-    { HOME_GO_TODO,    ATLAS_STR_HOME_GAMES,    ATLAS_STR_HOME_D_GAMES    },
+    { HOME_GO_GAMES,   ATLAS_STR_HOME_GAMES,    ATLAS_STR_HOME_D_GAMES    },
     { HOME_GO_APPS,    ATLAS_STR_HOME_APPS,     ATLAS_STR_COUNT           },
     { HOME_GO_FILES,   ATLAS_STR_HOME_FILES,    ATLAS_STR_COUNT           },
     { HOME_GO_DEVICES, ATLAS_STR_HOME_DEVICES,  ATLAS_STR_COUNT           },
@@ -139,6 +140,9 @@ static void home_update(atlas_screen_t *self)
         const home_entry_t *e = &s_entries[st->cursor];
 
         switch (e->target) {
+        case HOME_GO_GAMES:
+            atlas_screen_push(atlas_screen_games());
+            break;
         case HOME_GO_APPS:
             atlas_screen_push(atlas_screen_apps());
             break;

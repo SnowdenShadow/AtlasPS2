@@ -20,11 +20,30 @@ HDRS = $(wildcard ../include/atlas/*.h host/*.h)
 
 TESTS = test_utf8 test_path test_ini test_i18n test_config test_hash \
         test_theme test_fav test_fs_path test_disc test_lz4 test_image \
-        test_compat test_frag test_sector test_profile
+        test_compat test_frag test_sector test_profile test_btconf
 
-.PHONY: check clean
+.PHONY: check clean images
 
-check: $(TESTS)
+# test_image needs a disc in two formats to compare, and those are
+# generated rather than committed - 200 KB of data with no history worth
+# keeping. Generating them here rather than leaving it to the reader is
+# the difference between a check that runs and a check that prints
+# SKIPPED, and a skip in the default lane is a coverage gap nobody
+# notices.
+#
+# It needs Python's lz4 module, which is the REFERENCE compressor: our
+# decoder is checked against somebody else's encoder, because one
+# checked against its own can be uniformly wrong and still agree with
+# itself. A machine without it still gets every other check, so this is
+# best-effort and never fails the build.
+IMG_DIR = ../build/testimg
+
+images:
+	@mkdir -p $(IMG_DIR)
+	@python3 ../tools/genimage.py $(IMG_DIR) >/dev/null 2>&1 \
+	    || echo "note: test images not built (python3 lz4 module missing)"
+
+check: images $(TESTS)
 	@for t in $(TESTS); do ./$$t || exit 1; done
 
 test_utf8: test_utf8.c ../src/core/utf8.c $(HDRS)
@@ -114,6 +133,15 @@ test_frag: test_frag.c ../src/disc/frag.c $(HDRS)
 test_sector: test_sector.c ../src/disc/sector.c $(HDRS)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
 
+# btconf.c decides which modules the IOP boots with, and every way of
+# getting that wrong lands after the last screen: a drive module not
+# removed is our emulation loading and never being called, and one
+# removed that should not have been is an IOP missing something a game
+# needs. It takes a buffer rather than reading rom0: precisely so this
+# check can exist.
+test_btconf: test_btconf.c ../src/disc/btconf.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
+
 # profile.c is what a per-title setting means; profile_io.c reads and
 # writes the card and is not here. Every field in a profile has an
 # "unset" state that is not its zero value, and confusing the two is
@@ -136,13 +164,10 @@ test_profile: test_profile.c ../src/disc/profile.c ../src/disc/disc.c \
 #                                                                     #
 # The images are generated rather than committed (200 KB of data with #
 # no history worth keeping), and building the ZSO needs Python's lz4  #
-# module. `check` therefore does not depend on this: without the      #
-# images test_image reports SKIPPED, so a contributor who lacks the   #
+# module. The `images` rule that builds them is up with `check`, which #
+# depends on it; it is best-effort, so a contributor without the lz4  #
 # module still gets a useful run out of every other check.            #
 # ------------------------------------------------------------------ #
-
-images:
-	python3 ../tools/genimage.py ../build/testimg
 
 clean:
 	rm -f $(TESTS)

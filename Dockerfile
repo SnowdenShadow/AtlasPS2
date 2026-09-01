@@ -11,6 +11,12 @@
 # regenerates the committed atlases; a normal build does not use them.
 # gcc/musl-dev build the host-side self-checks in tests/, which run on
 # the build machine rather than the console.
+#
+# py3-lz4 is the REFERENCE compressor, and it is here for exactly that
+# reason: tools/genimage.py and tools/genlz4vec.py use it to produce the
+# data our own decoder is checked against. A decoder validated only
+# against its own encoder can be uniformly wrong and still agree with
+# itself, which is not a check at all.
 
 FROM ps2dev/ps2dev:latest
 
@@ -23,6 +29,7 @@ RUN apk add --no-cache \
         zip \
         python3 \
         py3-pillow \
+        py3-lz4 \
         font-dejavu
 
 WORKDIR /src

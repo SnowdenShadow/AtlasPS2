@@ -68,6 +68,8 @@ EE_SRC = \
 	src/disc/sector.c \
 	src/disc/profile.c \
 	src/disc/profile_io.c \
+	src/disc/game.c \
+	src/apps/discboot.c \
 	src/ui/font.c \
 	src/ui/theme.c \
 	src/ui/theme_io.c \
@@ -76,6 +78,7 @@ EE_SRC = \
 	src/ui/screen_home.c \
 	src/ui/screen_devices.c \
 	src/ui/screen_apps.c \
+	src/ui/screen_games.c \
 	src/ui/screen_files.c \
 	src/ui/screen_sysinfo.c \
 	src/ui/screen_video.c \
@@ -126,7 +129,7 @@ ifeq ($(DEBUG),1)
 EE_CFLAGS  += -DATLAS_DEBUG=1
 endif
 
-.PHONY: all debug installer all-elf check clean fonts lang
+.PHONY: all debug installer all-elf check clean fonts lang release
 
 # The SDK's default flags carry DWARF info, which triples the ELF for no
 # benefit on a console with no debugger attached. A release build strips
@@ -245,6 +248,26 @@ lang:
 	$(HOSTCC) -Wall -Wextra -O1 -Iinclude -Itests/host \
 		-o build/genlang tools/genlang.c src/core/i18n.c
 	./build/genlang lang
+
+# ------------------------------------------------------------------ #
+# Release packaging                                                   #
+#                                                                     #
+# Everything a user needs, in a directory that makes sense without    #
+# the source repository beside it: both ELFs, a USB/ tree laid out    #
+# the way the stick should look, both install guides as .txt, the     #
+# licences, and a checksum for every file.                            #
+#                                                                     #
+# The version comes from atlas.h rather than a variable here: two     #
+# places to change a version number is one place too many, and the    #
+# one that ends up wrong is always the one nobody compiles.           #
+# ------------------------------------------------------------------ #
+
+VERSION := $(shell sed -n \
+    's/^#define ATLAS_VERSION_\(MAJOR\|MINOR\|PATCH\) *//p' \
+    include/atlas/atlas.h | paste -sd. -)
+
+release: all-elf lang
+	@sh tools/mkrelease.sh $(VERSION) release
 
 # ------------------------------------------------------------------ #
 # Self-checks                                                         #

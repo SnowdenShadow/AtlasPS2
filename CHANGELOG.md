@@ -55,9 +55,69 @@ pre-release milestones, not a stable interface.
   picture cut off, which reads as a bad dump rather than as a setting
   the user can change.
 - **`docs/DISC.md`** - what is implemented, and the exact contract the
-  IOP-side drive emulation has to meet. The `cdvdman` replacement is not
-  in this repository: it cannot be checked on a build machine, and a
-  wrong one gives a black screen the user cannot tell from a bad dump.
+  IOP-side drive emulation has to meet.
+- **The drive emulation itself**, in `iop/atlascdvd/`: a `cdvdman`
+  replacement that answers a game's disc reads from a file on a USB
+  stick. It reads raw sectors and never mounts the volume, because by
+  the time it answers its first read the game owns the IOP and nothing
+  should be walking a filesystem. Built by the IOP toolchain, its
+  ordinals checked against the SDK header on every build, and embedded
+  in the ELF - there is no filesystem left to load it from at the point
+  it is installed.
+- **The untestable part is kept small.** The FAT walk and the extent
+  arithmetic live in `src/disc/frag.c` and the sector framing in
+  `src/disc/sector.c`, both with host self-checks over them; the module
+  calls into the same code rather than carrying a second copy. Two
+  implementations of the arithmetic that decides which sectors a game
+  reads, one of them untested, is how a game ends up reading somebody
+  else's data with nothing to show it did.
+- **The module fails the mechacon calls rather than answering them.**
+  The clock, the console ID, the NVM and the disc key are not things it
+  stands in for. A fabricated clock timestamps every save the player
+  makes and a fabricated console ID lies to a game about the machine it
+  is on; a title that genuinely needs one stops, which is visible,
+  instead of misbehaving later, which is not.
+- **The Games screen.** Lists the ISO and ZSO files on a USB stick -
+  `mass:/`, `DVD/`, `CD/`, `ISO/` and `ATLAS/GAMES/`, the folder names
+  other launchers already use, so an existing stick works unchanged.
+- **The list shows filenames, and says so by showing nothing else.**
+  Identifying an image means reading its volume descriptor and its
+  `SYSTEM.CNF`; doing that for thirty files on entry is a visible
+  stall, so it happens for the one image the user chooses. Nothing here
+  claims to know what a file contains until something has read it.
+- **Starting a game asks first, and says why.** The dialog names the
+  title the image turned out to be and states plainly that the drive
+  emulation is experimental and unverified on real hardware, and what
+  to do if the screen stays black. Past the IOP reset there is no
+  video, no pad and no way back but the power switch - a user who was
+  warned power-cycles and reports a game, and a user who was not
+  assumes they have bricked something.
+- **Memory Cards and the hard disk are not listed, deliberately.** The
+  emulation reads one device today. A row that always refuses is worse
+  than a row that is not there, so the screen says which device it can
+  use instead of offering ones it cannot.
+- **`docs/ARCHITECTURE.md`** - how the program is put together, written
+  around the question that shaped it: on a console with no debugger, no
+  console output and no keyboard, what does the user see when something
+  goes wrong? Video before configuration, a theme that cannot be
+  removed, and half the modules split in two are all answers to it.
+- **`make release`** assembles `release/AtlasPS2-vX.Y.Z/` - both ELFs, a
+  `USB/` tree already laid out the way the stick should look, both
+  install guides as `.txt`, the licence text rather than a link to it,
+  and a SHA-256 for every file. The version is read out of `atlas.h`,
+  because two places to change a version number is one too many and the
+  one that ends up wrong is always the one nobody compiles.
+- **The release README leads with what has not been tested.** An archive
+  that a user finds outside this repository has to carry the same
+  statement the repository makes: nothing here has run on a console, the
+  installer's rollback is design rather than evidence, and booting a
+  game is the least verified part of all.
+- **A hardware checklist for the Games screen** in `docs/TESTING.md`,
+  written to separate two failures that look identical on a television:
+  the list being wrong and the drive emulation being wrong. The first
+  five items are cheap and must pass before the sixth is attempted - a
+  black screen is far easier to reason about when the rows above it are
+  known good.
 - **Favorites and a recently-used list.** Square marks the highlighted
   application; the applications screen then grows a "Recently used" and
   a "Favorites" group above the full list. Both are stored in

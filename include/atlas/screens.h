@@ -36,6 +36,23 @@ atlas_screen_t *atlas_screen_devices(void);
 atlas_screen_t *atlas_screen_apps(void);
 
 /**
+ * The disc images found on USB, and starting one.
+ *
+ * Lists filenames only. Identifying an image costs a read of its volume
+ * descriptor and its SYSTEM.CNF, so it happens for the one image the
+ * user chooses rather than for every file on entry - and its result is
+ * shown in the confirmation dialog, which is also where a file that
+ * turns out not to be a PS2 disc is reported.
+ *
+ * The confirmation is not a formality. Past the IOP reset inside
+ * atlas_discboot_run() there is no video, no pad and no way back except
+ * the power switch, and the module that answers the game's disc reads
+ * has never run on a console. The dialog says so, so that a black
+ * screen is a disappointment rather than a mystery.
+ */
+atlas_screen_t *atlas_screen_games(void);
+
+/**
  * The file manager: browse, launch, copy, move, rename, delete.
  *
  * Starts at the device list rather than inside one device, because

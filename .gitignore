@@ -2,7 +2,10 @@
 # ignored: they are committed so a normal build needs neither Python nor
 # the source TTFs.
 build/
-release/*.zip
+
+# Assembled release directories. `make release` rebuilds one whole from
+# build/ and the docs, so a committed copy could only ever be stale.
+release/
 
 # Host-side self-check binaries, built by `make check`.
 tests/test_*
@@ -11,7 +14,6 @@ tests/test_*
 *.o
 *.elf
 *.ELF
-!release/**/*.ELF
 
 .DS_Store
 Thumbs.db

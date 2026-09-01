@@ -102,7 +102,7 @@ of knowledge that players collect and we do not.
 | `low_modules` | Leave the IOP memory map alone. A small number of games assume all of IOP RAM is theirs and write over whatever is there — which, with an emulated drive, is the driver they are reading through. |
 | `no_disc_patch` | Do not patch the game's disc-detection routine. A few titles use the same routine for something else. |
 
-## What is not implemented, and why
+## The drive emulation, and what it does not cover yet
 
 A game does not read files. It calls `cdvdman`, which talks to the
 drive. To boot from a file, that module has to be replaced with one that
@@ -110,25 +110,48 @@ answers from the file instead — and it runs on the IOP, in the IOP's
 address space, exporting an ABI that a hundred games' worth of code
 already links against by ordinal.
 
+That module is `iop/atlascdvd/`. It is built by the IOP toolchain, its
+ordinals are checked against the SDK header by `tools/checkexports.py`
+on every build, and `bin2c` embeds the resulting `.irx` in the launcher
+ELF — there is no filesystem left to load it from at the point it is
+installed. `src/apps/discboot.c` is the EE half: it identifies the image
+while the user is still looking at a screen, then resets the IOP without
+the stock drive modules, loads the device stack and this module, and
+hands over.
+
 **None of that is testable on a build machine, and getting it wrong
 gives a black screen.** That is recoverable — the console is one power
 cycle from the menu — but it is indistinguishable from a bad dump, and a
-user cannot tell which they have.
+user cannot tell which they have. So the module is written to keep the
+untestable part small: the FAT walk and the extent arithmetic live in
+`src/disc/frag.c` and the sector framing in `src/disc/sector.c`, both
+with host self-checks over them, and what remains in the IOP module is
+sequencing and hardware.
 
-So the IRX is not in this repository. Shipping an unverified one would
-contradict the thing the rest of this project is built around, which is
-that a user should never be unable to tell what went wrong. What follows
-is the contract it has to meet, written down while it is fresh, so that
-whoever has a console in hand is not rediscovering it.
+Its scope today is deliberately one thing: **ISO images on a USB block
+device.** ZSO, HDD and SMB are each a change to that module's `bd_read()`
+and nothing else, which is why that function is the only place in it
+that knows where bytes come from.
+
+The rest of this section is the contract, including the parts not yet
+met. Every hardware row in [COMPATIBILITY.md](COMPATIBILITY.md) is
+`UNTESTED`; nothing below should be read as a claim that it works.
 
 ### 1. The module the game calls
 
 Replace `cdvdman` and `cdvdfsd`. Load them from EE RAM after
 `IOP reset`, before the game's own modules, with the real ones excluded.
+`discboot.c` does this with `SifIopReset("rom0:UDNL rom0:EELOADCNF", 0)`
+— a reset whose module list omits the drive modules, because a module
+cannot register a library name that is already registered, and the real
+`cdvdman` would win the name and ours would load and never be called.
 
 The export table must match the real module **by ordinal, not by name**.
 Games bind to the numbers. A table with the right functions in the wrong
-order links cleanly and calls the wrong one at runtime.
+order links cleanly and calls the wrong one at runtime. This is what
+`tools/checkexports.py` exists to catch: it compares
+`iop/atlascdvd/exports.tab` against the SDK's own ordinals and fails the
+build on a mismatch, so a drift cannot reach a console.
 
 The calls that matter:
 
@@ -141,10 +164,15 @@ The calls that matter:
   is what `force_dvd` overrides.
 - `sceCdDiskReady()`, `sceCdTrayReq()` — where `hide_tray` lives.
 - `sceCdStatus()`, `sceCdGetError()`, `sceCdSync()`, `sceCdInit()`.
-- `sceCdReadClock()` — from the real RTC; games use it for save
-  timestamps.
+- `sceCdReadClock()` — the real RTC, reached through the mechacon; games
+  use it for save timestamps. The module **fails this rather than
+  answering**, along with the console ID, the NVM and the disc key: a
+  fabricated clock timestamps every save the player makes, and a
+  fabricated console ID lies to a game about the machine it is on. A
+  title that genuinely needs one stops, which is visible, instead of
+  misbehaving later, which is not.
 - The stream calls (`sceCdStRead` and its family) for titles that stream
-  audio through the drive interface.
+  audio through the drive interface. Exported, not yet implemented.
 
 ### 2. Reads must survive the game's DMA
 
@@ -215,8 +243,10 @@ belongs in `COMPAT.INI` — not in the ELF.
 ## Order of work
 
 1. ISO only, from USB, one known-good game, no compression. Nothing else
-   moves until a game boots.
-2. ZSO on top of that.
+   moves until a game boots. **← the module is written to here, and is
+   unverified on hardware.**
+2. ZSO on top of that. One function, `bd_read()`, plus the block cache
+   sizing in the section above.
 3. IGR and poweroff — before wide testing, not after, because everything
    else is unpleasant to test without them.
 4. Sub-sector modes, then streaming titles.
@@ -224,3 +254,17 @@ belongs in `COMPAT.INI` — not in the ELF.
 
 Test on hardware at each step. There is no emulator whose `cdvdman`
 behaviour is close enough to be evidence.
+
+## Reading the code
+
+| File | Contents |
+|---|---|
+| `src/disc/disc.c` | Identifying an image: `SYSTEM.CNF`, the game ID, the region |
+| `src/disc/image.c` | ISO and ZSO reading on the EE, with the block cache |
+| `src/disc/lz4.c` | ZSO block decompression |
+| `src/disc/frag.c` | The FAT walk and the extent list — host-checked |
+| `src/disc/sector.c` | 2048/2340/2352 framing — host-checked |
+| `src/disc/compat.c` | What a compatibility flag means |
+| `src/apps/discboot.c` | The EE half: identify, reset the IOP, install, hand over |
+| `iop/atlascdvd/main.c` | The IOP module the game calls |
+| `iop/atlascdvd/exports.tab` | The ordinals, checked against the SDK on every build |

@@ -109,6 +109,69 @@ extern "C" {
     X(APPS_FAIL_OTHER, "apps.fail.other",                                    \
         "The program could not be started.",                                 \
         "Le programme n'a pas pu \xc3\xaatre d\xc3\xa9marr\xc3\xa9.")        \
+    /* ------------------------------------------------------------------ */\
+    /* Games.                                                              */\
+    /*                                                                     */\
+    /* The screen's own vocabulary is deliberately plain about what it is  */\
+    /* doing: the drive emulation is unverified on hardware, and a user    */\
+    /* who gets a black screen must have been told beforehand that this    */\
+    /* was possible. None of these strings promise that a game will run.   */\
+    /* ------------------------------------------------------------------ */\
+    X(GAMES_EMPTY,     "games.empty",       "No disc images found.",         \
+                                            "Aucune image de disque "        \
+                                            "trouv\xc3\xa9""e.")             \
+    X(GAMES_EMPTY_HINT,"games.empty.hint",                                   \
+        "Copy an .ISO or .ZSO into one of these folders on a USB drive:",    \
+        "Copiez un fichier .ISO ou .ZSO dans l'un de ces dossiers "          \
+        "d'une cl\xc3\xa9 USB :")                                            \
+    X(GAMES_USB_ONLY,  "games.usb_only",                                     \
+        "Only USB is supported. Memory Cards and the hard disk are not "     \
+        "read by the disc emulation yet.",                                   \
+        "Seul l'USB est pris en charge. Les cartes m\xc3\xa9moire et le "    \
+        "disque dur ne sont pas encore lus par l'\xc3\xa9mulation.")         \
+    X(GAMES_NO_USB,    "games.no_usb",                                       \
+        "No USB drive is connected.",                                        \
+        "Aucune cl\xc3\xa9 USB n'est connect\xc3\xa9""e.")                   \
+    X(GAMES_FAIL_TITLE,"games.fail.title",  "Cannot start this image",       \
+                                            "Impossible de lancer cette "    \
+                                            "image")                         \
+    X(GAMES_FAIL_GONE, "games.fail.gone",                                    \
+        "The file is gone. Was the drive removed?",                          \
+        "Le fichier a disparu. La cl\xc3\xa9 a-t-elle \xc3\xa9t\xc3\xa9 "    \
+        "retir\xc3\xa9""e ?")                                                \
+    X(GAMES_FAIL_FORMAT,"games.fail.format",                                 \
+        "This file is not a PS2 disc image, or the download is incomplete.", \
+        "Ce fichier n'est pas une image de disque PS2, ou le "               \
+        "t\xc3\xa9l\xc3\xa9""chargement est incomplet.")                     \
+    X(GAMES_FAIL_FRAG, "games.fail.frag",                                    \
+        "The file is split into too many pieces on the drive. "              \
+        "Copy it again onto an empty drive.",                                \
+        "Le fichier est trop morcel\xc3\xa9 sur la cl\xc3\xa9. "             \
+        "Recopiez-le sur une cl\xc3\xa9 vide.")                              \
+    X(GAMES_FAIL_DEV,  "games.fail.dev",                                     \
+        "This device cannot be read by the disc emulation.",                 \
+        "Ce p\xc3\xa9riph\xc3\xa9rique ne peut pas \xc3\xaatre lu par "      \
+        "l'\xc3\xa9mulation de lecteur.")                                    \
+    X(GAMES_FAIL_OTHER,"games.fail.other",                                   \
+        "The image could not be read.",                                      \
+        "L'image n'a pas pu \xc3\xaatre lue.")                               \
+    /* The warning before the handover. This is the one dialog in the    */  \
+    /* program whose purpose is to tell the user that what happens next  */  \
+    /* is untested, so that a black screen is a disappointment and not a */  \
+    /* mystery.                                                          */  \
+    X(GAMES_WARN_TITLE,"games.warn.title",  "Start this game?",              \
+                                            "Lancer ce jeu ?")               \
+    X(GAMES_WARN_1,    "games.warn.1",                                       \
+        "Disc emulation is experimental and unverified on real hardware.",   \
+        "L'\xc3\xa9mulation de lecteur est exp\xc3\xa9rimentale et non "     \
+        "v\xc3\xa9rifi\xc3\xa9""e sur console r\xc3\xa9""elle.")             \
+    X(GAMES_WARN_2,    "games.warn.2",                                       \
+        "If the screen stays black, switch the console off and on again.",   \
+        "Si l'\xc3\xa9""cran reste noir, \xc3\xa9teignez puis rallumez la "  \
+        "console.")                                                          \
+    X(GAMES_NO_COMPAT, "games.no_compat",   "no compatibility entry",        \
+                                            "aucune fiche de "               \
+                                            "compatibilit\xc3\xa9")          \
     /*                                                                       \
      * Favorites. These name the three groups the applications list is       \
      * drawn in, so they are headings rather than commands - except the      \
