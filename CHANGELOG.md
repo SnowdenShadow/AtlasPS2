@@ -141,6 +141,35 @@ pre-release milestones, not a stable interface.
   a reset followed by a save wrote nothing and the favorites came back
   at the next boot. Clearing on the user's behalf is a separate call
   that marks them changed.
+- **Per-title profiles: one small INI file per game.** `video_mode`,
+  `aspect_ratio`, `offset_x`, `offset_y`, `widescreen` and `launch_app`,
+  at `mc0:/ATLAS/PROFILES/SLUS_20946.INI`. Every field has an unset
+  state distinct from its zero value, so a profile naming one key
+  leaves the rest alone: "unset" and "0" are different answers for an
+  offset, and collapsing them would let a profile that only sets the
+  aspect quietly reset the screen trim someone spent ten minutes on.
+- **A profile is a preference, not a compatibility entry.** Kept in
+  separate files from the compatibility database on purpose: that one
+  holds knowledge collected by players and pasted between launchers,
+  this one holds one person's television. Merging them would mean
+  importing somebody's shared compatibility list overwrote the offsets
+  you had trimmed for your own set.
+- **`widescreen` is recorded and not acted on.** AtlasPS2 patches no
+  games. A title's internal rendering aspect is a property of the game;
+  the flag exists so a profile can carry what the user knows and pass
+  it to the launcher it hands over to.
+- **A profile file too large to be a profile is ignored, not
+  truncated.** Unlike the compatibility list - where a short read can
+  only lose whole entries off the end - a profile is a handful of keys,
+  so a file over the cap is not a long profile but the wrong file, and
+  applying the start of one is worse than applying none.
+- **`compat.h` and `video.h` can now be included in the same file.**
+  Both spelled their video-mode enumerators `ATLAS_VMODE_AUTO/NTSC/PAL`;
+  compatibility's are now `ATLAS_DRIVE_MODE_*`, which is also the truer
+  name - they decide what the emulated drive tells the game, while the
+  video module's decide what the Graphics Synthesizer outputs. The
+  collision only surfaced when something finally needed both headers,
+  which is precisely what launching a disc does.
 - **Milestone 9 - the file manager.** Browse every mounted device from
   one tree, launch an ELF, copy, move, rename, create a folder, delete
   a file, delete an empty folder. File sizes are shown, and the

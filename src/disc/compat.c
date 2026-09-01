@@ -201,11 +201,11 @@ static int compat_key(void *user, const char *section, const char *key,
          * user a picture running a fifth too slow with no way to tell
          * that from a bad dump. */
         if (ieq(value, "pal"))
-            e->vmode = ATLAS_VMODE_PAL;
+            e->vmode = ATLAS_DRIVE_MODE_PAL;
         else if (ieq(value, "ntsc"))
-            e->vmode = ATLAS_VMODE_NTSC;
+            e->vmode = ATLAS_DRIVE_MODE_NTSC;
         else if (ieq(value, "auto"))
-            e->vmode = ATLAS_VMODE_AUTO;
+            e->vmode = ATLAS_DRIVE_MODE_AUTO;
         else
             ATLAS_LOG("COMPAT", "%s: vmode='%s' unknown", e->id, value);
 
@@ -279,16 +279,16 @@ atlas_compat_vmode_t atlas_compat_vmode_for(const atlas_compat_t *entry,
 {
     /* An explicit per-game setting is somebody's tested answer, and it
      * outranks anything derived from the ID prefix. */
-    if (entry && entry->vmode != ATLAS_VMODE_AUTO)
+    if (entry && entry->vmode != ATLAS_DRIVE_MODE_AUTO)
         return entry->vmode;
 
     switch (region) {
     case ATLAS_REGION_PAL:
-        return ATLAS_VMODE_PAL;
+        return ATLAS_DRIVE_MODE_PAL;
 
     case ATLAS_REGION_NTSC_U:
     case ATLAS_REGION_NTSC_J:
-        return ATLAS_VMODE_NTSC;
+        return ATLAS_DRIVE_MODE_NTSC;
 
     default:
         /*
@@ -296,6 +296,6 @@ atlas_compat_vmode_t atlas_compat_vmode_for(const atlas_compat_t *entry,
          * caller shows the user a choice; guessing here would send a
          * PAL homebrew to an NTSC television and look like a bad dump.
          */
-        return ATLAS_VMODE_AUTO;
+        return ATLAS_DRIVE_MODE_AUTO;
     }
 }

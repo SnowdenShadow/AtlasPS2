@@ -3,11 +3,31 @@
  *
  * What the EE hands the IOP module at load time.
  *
- * The module is loaded with an argument block rather than reading a
- * config file, because at the point it runs there is no filesystem: the
- * IOP has just been reset, the game's modules are about to be loaded,
- * and everything the module will ever need to know has to already be in
- * the block it was started with.
+ * The module is started with an argument block rather than reading a
+ * config file, because at the point it runs there is no EE program left
+ * to ask: the IOP has just been reset, the game's modules are about to
+ * be loaded, and everything the module will ever need to know has to
+ * already be in the block it was started with.
+ *
+ * WHY A PATH AND NOT A LIST OF SECTORS
+ * ------------------------------------
+ * An earlier version of this header carried the file's extent list -
+ * 512 runs, 4 KB - built on the EE and copied across. It does not, now,
+ * because the FAT reader in src/disc/frag.c compiles for the IOP
+ * unchanged. The module walks the filesystem itself, once, in _start,
+ * before the game exists.
+ *
+ * That is strictly better in the way that matters here: there is one
+ * implementation of the arithmetic that decides which sectors a game
+ * reads, and it is the one tests/test_frag.c is run against on every
+ * build. Two copies of that arithmetic - one checked, one transcribed
+ * into a module that cannot be tested - is precisely the arrangement
+ * that produces a game reading somebody else's data with nothing to
+ * show it did.
+ *
+ * The walk is still a walk of a live filesystem, but it happens before
+ * a single line of the game has run, on an IOP that is doing nothing
+ * else. Everything after it is raw sector reads.
  *
  * This header is shared verbatim between the EE side that fills the
  * block in and the IOP side that reads it. It is the one file in the
@@ -21,27 +41,23 @@
  * carrying a different number rather than reading a field that has
  * moved - an argument block silently misread is a drive emulation
  * answering with somebody else's numbers. */
-#define ATLASCDVD_ARG_VERSION 1
+#define ATLASCDVD_ARG_VERSION 2
 
 #define ATLASCDVD_MAGIC 0x41544C43      /* 'ATLC' */
-
-/* Must match ATLAS_FRAG_MAX in include/atlas/frag.h. The two are
- * checked against each other at compile time on the EE side. */
-#define ATLASCDVD_FRAG_MAX 512
 
 /* Bits in `flags`, filled from COMPAT.INI on the EE side. */
 #define ATLASCDVD_F_FORCE_DVD   (1u << 0)   /* report PS2DVD regardless */
 #define ATLASCDVD_F_HIDE_TRAY   (1u << 1)   /* never report a tray change */
 #define ATLASCDVD_F_SLOW_FIRST  (1u << 2)   /* delay the first read */
 
-/* Which device the extents are on. The module needs this because a
- * sector number means nothing without the device it is a sector of. */
+/* Which device the image is on. The module needs this because a path
+ * means nothing without the device it is a path on. */
 #define ATLASCDVD_DEV_BDM       0           /* USB / any bdm block device */
 
-typedef struct {
-    unsigned int start;
-    unsigned int count;
-} atlascdvd_frag_t;
+/* Long enough for the paths a user actually types into a launcher, and
+ * short enough that the whole block stays small: it is copied out of EE
+ * memory the game is about to be given. */
+#define ATLASCDVD_PATH_MAX      256
 
 typedef struct {
     unsigned int magic;
@@ -50,16 +66,14 @@ typedef struct {
     unsigned int device;        /* ATLASCDVD_DEV_*                     */
     unsigned int device_index;  /* which one, when there are several   */
 
-    unsigned int sector_size;   /* device sector size, in bytes        */
-    unsigned int size_lo;       /* image length in bytes, low 32       */
-    unsigned int size_hi;       /* ... and high 32: a dual-layer DVD
-                                 * is 8.5 GB and does not fit in 32    */
-
     unsigned int flags;
     unsigned int layer1_lba;    /* 0 for a single-layer image          */
 
-    unsigned int frag_count;
-    atlascdvd_frag_t frag[ATLASCDVD_FRAG_MAX];
+    /* Absolute within the volume, either separator, no device prefix:
+     * "/DVD/GAME.ISO". The device is the field above; a path carrying
+     * "mass:" would be a second, disagreeing answer to the same
+     * question. */
+    char path[ATLASCDVD_PATH_MAX];
 } atlascdvd_arg_t;
 
 #endif /* ATLASCDVD_H */

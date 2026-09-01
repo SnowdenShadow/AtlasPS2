@@ -20,7 +20,7 @@ HDRS = $(wildcard ../include/atlas/*.h host/*.h)
 
 TESTS = test_utf8 test_path test_ini test_i18n test_config test_hash \
         test_theme test_fav test_fs_path test_disc test_lz4 test_image \
-        test_compat test_frag test_sector
+        test_compat test_frag test_sector test_profile
 
 .PHONY: check clean
 
@@ -112,6 +112,17 @@ test_frag: test_frag.c ../src/disc/frag.c $(HDRS)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
 
 test_sector: test_sector.c ../src/disc/sector.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
+
+# profile.c is what a per-title setting means; profile_io.c reads and
+# writes the card and is not here. Every field in a profile has an
+# "unset" state that is not its zero value, and confusing the two is
+# invisible: a profile naming only the aspect would reset the screen
+# trim someone spent ten minutes on, and they would notice months later
+# with no idea which change did it. video_cfg.c supplies the enums and
+# the offset limits the clamps share with the [video] section.
+test_profile: test_profile.c ../src/disc/profile.c ../src/disc/disc.c \
+              ../src/core/ini.c ../src/video/video_cfg.c $(HDRS)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
 
 # ------------------------------------------------------------------ #

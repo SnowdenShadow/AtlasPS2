@@ -47,13 +47,13 @@ static void check_basic(void)
     e = atlas_compat_find("SLUS-20902");
     assert(e != NULL);
     assert(e->flags == ATLAS_COMPAT_FORCE_DVD);
-    assert(e->vmode == ATLAS_VMODE_PAL);
+    assert(e->vmode == ATLAS_DRIVE_MODE_PAL);
 
     e = atlas_compat_find("SLES-50490");
     assert(e != NULL);
     assert(e->flags == (ATLAS_COMPAT_HIDE_TRAY
                         | ATLAS_COMPAT_SLOW_FIRST_READ));
-    assert(e->vmode == ATLAS_VMODE_AUTO);
+    assert(e->vmode == ATLAS_DRIVE_MODE_AUTO);
 
     /* A game with no entry is the normal case, and means "defaults",
      * not "cannot launch". */
@@ -186,7 +186,7 @@ static void check_malformed_survives(void)
     e = atlas_compat_find("SLUS-20001");
     assert(e != NULL);
     assert(e->flags == ATLAS_COMPAT_FORCE_DVD);   /* the good line held */
-    assert(e->vmode == ATLAS_VMODE_AUTO);         /* the bad one did not */
+    assert(e->vmode == ATLAS_DRIVE_MODE_AUTO);         /* the bad one did not */
 
     /* The entry after the bad section still loaded. */
     e = atlas_compat_find("SLUS-20002");
@@ -251,21 +251,21 @@ static void check_vmode_spellings(void)
           "[SLUS-20003]\nvmode = Auto\n"
           "[SLUS-20004]\nvmode = pal\nvmode = ntsc\n", 4);
 
-    assert(atlas_compat_find("SLUS-20001")->vmode == ATLAS_VMODE_PAL);
-    assert(atlas_compat_find("SLUS-20002")->vmode == ATLAS_VMODE_NTSC);
-    assert(atlas_compat_find("SLUS-20003")->vmode == ATLAS_VMODE_AUTO);
+    assert(atlas_compat_find("SLUS-20001")->vmode == ATLAS_DRIVE_MODE_PAL);
+    assert(atlas_compat_find("SLUS-20002")->vmode == ATLAS_DRIVE_MODE_NTSC);
+    assert(atlas_compat_find("SLUS-20003")->vmode == ATLAS_DRIVE_MODE_AUTO);
 
     /* The last line wins, so a user correcting the file above an old
      * line does not have to find and delete it. */
-    assert(atlas_compat_find("SLUS-20004")->vmode == ATLAS_VMODE_NTSC);
+    assert(atlas_compat_find("SLUS-20004")->vmode == ATLAS_DRIVE_MODE_NTSC);
 
     /* A near miss is not a mode. "p" is not "pal", and a first-letter
      * parser would take it. */
     parse("[SLUS-20001]\nvmode = pal\nvmode = p\n"
           "[SLUS-20002]\nvmode = never\n", 2);
 
-    assert(atlas_compat_find("SLUS-20001")->vmode == ATLAS_VMODE_PAL);
-    assert(atlas_compat_find("SLUS-20002")->vmode == ATLAS_VMODE_AUTO);
+    assert(atlas_compat_find("SLUS-20001")->vmode == ATLAS_DRIVE_MODE_PAL);
+    assert(atlas_compat_find("SLUS-20002")->vmode == ATLAS_DRIVE_MODE_AUTO);
 }
 
 static void check_empty_and_limits(void)
@@ -356,11 +356,11 @@ static void check_vmode(void)
 
     /* With no entry, the region decides. */
     assert(atlas_compat_vmode_for(NULL, ATLAS_REGION_PAL)
-           == ATLAS_VMODE_PAL);
+           == ATLAS_DRIVE_MODE_PAL);
     assert(atlas_compat_vmode_for(NULL, ATLAS_REGION_NTSC_U)
-           == ATLAS_VMODE_NTSC);
+           == ATLAS_DRIVE_MODE_NTSC);
     assert(atlas_compat_vmode_for(NULL, ATLAS_REGION_NTSC_J)
-           == ATLAS_VMODE_NTSC);
+           == ATLAS_DRIVE_MODE_NTSC);
 
     /*
      * An unknown region stays AUTO. Guessing NTSC here would send PAL
@@ -368,22 +368,22 @@ static void check_vmode(void)
      * rather than like a setting the user can change.
      */
     assert(atlas_compat_vmode_for(NULL, ATLAS_REGION_UNKNOWN)
-           == ATLAS_VMODE_AUTO);
+           == ATLAS_DRIVE_MODE_AUTO);
 
     /* An explicit per-game setting is somebody's tested answer and
      * outranks the region every time. */
-    e.vmode = ATLAS_VMODE_NTSC;
-    assert(atlas_compat_vmode_for(&e, ATLAS_REGION_PAL) == ATLAS_VMODE_NTSC);
+    e.vmode = ATLAS_DRIVE_MODE_NTSC;
+    assert(atlas_compat_vmode_for(&e, ATLAS_REGION_PAL) == ATLAS_DRIVE_MODE_NTSC);
 
-    e.vmode = ATLAS_VMODE_PAL;
-    assert(atlas_compat_vmode_for(&e, ATLAS_REGION_NTSC_U) == ATLAS_VMODE_PAL);
+    e.vmode = ATLAS_DRIVE_MODE_PAL;
+    assert(atlas_compat_vmode_for(&e, ATLAS_REGION_NTSC_U) == ATLAS_DRIVE_MODE_PAL);
 
     /* AUTO in an entry means "no opinion", so the region decides
      * again - it must not be treated as an override of its own. */
-    e.vmode = ATLAS_VMODE_AUTO;
-    assert(atlas_compat_vmode_for(&e, ATLAS_REGION_PAL) == ATLAS_VMODE_PAL);
+    e.vmode = ATLAS_DRIVE_MODE_AUTO;
+    assert(atlas_compat_vmode_for(&e, ATLAS_REGION_PAL) == ATLAS_DRIVE_MODE_PAL);
     assert(atlas_compat_vmode_for(&e, ATLAS_REGION_UNKNOWN)
-           == ATLAS_VMODE_AUTO);
+           == ATLAS_DRIVE_MODE_AUTO);
 }
 
 int main(void)

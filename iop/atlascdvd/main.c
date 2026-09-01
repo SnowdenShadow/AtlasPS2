@@ -20,8 +20,17 @@
  * path the game can pre-empt, in memory the game may have decided is
  * its own.
  *
- * So the file was reduced to a list of extents before the game started
- * (src/disc/frag.c), and this module reads those sectors directly.
+ * So the filesystem is read exactly once, here, in _start - before the
+ * game's own modules are loaded and before a line of it has run. The
+ * file is reduced to the list of device sectors it occupies, and every
+ * read after that is a raw sector read.
+ *
+ * The reader that does this is src/disc/frag.c, the same file the EE
+ * side uses, compiled a second time by the IOP toolchain. It is shared
+ * rather than transcribed because tests/test_frag.c is run against it
+ * on every build: two copies of the arithmetic that decides which
+ * sectors a game reads, one of them untested, is exactly how a game
+ * ends up reading somebody else's data with nothing to show it did.
  *
  * WHAT IS AND IS NOT HERE
  * -----------------------
@@ -39,10 +48,11 @@
  * There is no host on which this code can run, and no emulator whose
  * cdvdman behaviour is close enough to be evidence. What *can* be
  * checked off-console is checked elsewhere and deliberately kept out of
- * this file: the extent arithmetic is in src/disc/frag.c with
- * tests/test_frag.c over it, the sector framing is in src/disc/sector.c
- * with tests/test_sector.c over it, and the export ordinals are checked
- * against the SDK header by tools/checkexports.py as part of the build.
+ * this file: the FAT walk and the extent arithmetic are in
+ * src/disc/frag.c with tests/test_frag.c over them, the sector framing
+ * is in src/disc/sector.c with tests/test_sector.c over it, and the
+ * export ordinals are checked against the SDK header by
+ * tools/checkexports.py as part of the build.
  *
  * What remains here is sequencing and hardware, and it is unverified
  * until it runs on a console. That is stated plainly rather than
@@ -60,6 +70,8 @@
 #include <thevent.h>
 #include <thsemap.h>
 #include <types.h>
+
+#include "atlas/frag.h"
 
 #include "atlascdvd.h"
 
@@ -107,6 +119,10 @@ extern struct irx_export_table _exp_cdvdman;
 
 static atlascdvd_arg_t  g_arg;
 static struct block_device *g_bd;
+
+/* Where the image lives on the device. Built once in _start and then
+ * only read - nothing after start-up writes to it. */
+static atlas_fraglist_t g_fl;
 
 static int  g_sema;                     /* one command at a time       */
 static int  g_event;                    /* read completion             */
@@ -164,47 +180,16 @@ static int bd_read(u32 sector, u32 count, void *buf)
 }
 
 /**
- * Where in the device is byte `offset` of the image?
+ * The read callback frag.c walks the filesystem through.
  *
- * The same walk as atlas_frag_lookup(), which is checked on the build
- * machine by tests/test_frag.c. It is repeated here rather than shared
- * because this module cannot link EE code; the two must be changed
- * together, and the check over there is what says the arithmetic is
- * right.
+ * Sector numbers are relative to the start of the volume; a block
+ * device's own read adds the partition offset, which is what bd_read()
+ * already does.
  */
-static int extent_lookup(u32 offset, u32 *out_sector, u32 *out_skip,
-                         u32 *out_run)
+static int frag_read_cb(void *ctx, u32 sector, u32 count, void *buf)
 {
-    u32 seen = 0;
-    u32 i;
-    u32 size = g_arg.size_lo;
-
-    /* An image at or past 4 GB is refused at load time, so size_hi is
-     * zero here and the arithmetic below stays 32-bit - which is what
-     * an R3000 can do without a library call. */
-    if (offset >= size)
-        return -1;
-
-    for (i = 0; i < g_arg.frag_count; i++) {
-        u32 bytes = g_arg.frag[i].count * g_arg.sector_size;
-
-        if (offset < seen + bytes) {
-            u32 within = offset - seen;
-
-            *out_sector = g_arg.frag[i].start + within / g_arg.sector_size;
-            *out_skip   = within % g_arg.sector_size;
-            *out_run    = bytes - within;
-
-            if (*out_run > size - offset)
-                *out_run = size - offset;
-
-            return 0;
-        }
-
-        seen += bytes;
-    }
-
-    return -1;
+    (void)ctx;
+    return bd_read(sector, count, buf);
 }
 
 /**
@@ -218,17 +203,22 @@ static int image_read(u32 offset, u32 bytes, u8 *dst)
 {
     while (bytes > 0) {
         u32 sector, skip, run, chunk, want_sectors;
+        u32 ss = g_fl.sector_size;
 
-        if (extent_lookup(offset, &sector, &skip, &run) != 0)
+        if (atlas_frag_lookup(&g_fl, offset, &sector, &skip, &run)
+            != ATLAS_OK)
             return -1;
 
         chunk = (run < bytes) ? run : bytes;
 
-        if (chunk > BOUNCE_BYTES - g_arg.sector_size)
-            chunk = BOUNCE_BYTES - g_arg.sector_size;
+        /* One device sector of the bounce buffer is reserved for the
+         * part of the first sector before `skip`, which is read and
+         * thrown away. Without it a full-buffer request would need one
+         * sector more than the buffer holds. */
+        if (chunk > BOUNCE_BYTES - ss)
+            chunk = BOUNCE_BYTES - ss;
 
-        want_sectors = (skip + chunk + g_arg.sector_size - 1)
-                       / g_arg.sector_size;
+        want_sectors = (skip + chunk + ss - 1) / ss;
 
         if (bd_read(sector, want_sectors, g_bounce) != 0)
             return -1;
@@ -241,6 +231,70 @@ static int image_read(u32 offset, u32 bytes, u8 *dst)
     }
 
     return 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Sector framing                                                      */
+/*                                                                     */
+/* The same rules as src/disc/sector.c, which carries the reasoning    */
+/* and the self-check. Repeated because this module cannot link EE     */
+/* code; the two are changed together.                                 */
+/*                                                                     */
+/* 2352 is absent on purpose: sceCdRead()'s datapattern field has no   */
+/* value for it, so nothing can ask for it here.                       */
+/* ------------------------------------------------------------------ */
+
+static u8 to_bcd(u32 v)
+{
+    return (u8)(((v / 10) % 10) * 16 + (v % 10));
+}
+
+static u32 sector_out_size(int mode)
+{
+    switch (mode) {
+    case SCECdSecS2048: return 2048;
+    case SCECdSecS2328: return 2328;
+    case SCECdSecS2340: return 2340;
+    default:            return 0;
+    }
+}
+
+static void sector_expand(int mode, u32 lba, const u8 *data, u8 *out)
+{
+    u32 total = lba + 150;      /* the two-second pre-gap */
+
+    switch (mode) {
+    case SCECdSecS2048:
+        memcpy(out, data, 2048);
+        return;
+
+    case SCECdSecS2328:
+        memcpy(out, data, 2048);
+        memset(out + 2048, 0, 2328 - 2048);
+        return;
+
+    case SCECdSecS2340:
+        out[0] = to_bcd(total / (75 * 60));
+        out[1] = to_bcd((total / 75) % 60);
+        out[2] = to_bcd(total % 75);
+        out[3] = 2;                     /* Mode 2 */
+
+        out[4] = 0;                     /* file    */
+        out[5] = 0;                     /* channel */
+        out[6] = 0x08;                  /* submode: data, form 1 */
+        out[7] = 0;
+        out[8]  = out[4];
+        out[9]  = out[5];
+        out[10] = out[6];
+        out[11] = out[7];
+
+        memcpy(out + 12, data, 2048);
+        memset(out + 12 + 2048, 0, 2340 - 12 - 2048);
+        return;
+
+    default:
+        return;
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -295,7 +349,7 @@ static void worker(void *unused)
              * same code as src/disc/sector.c, which is checked on the
              * build machine.
              */
-            u32 out_size = atlas_sector_size_iop(mode);
+            u32 out_size = sector_out_size(mode);
 
             if (out_size == 0) {
                 ok = 0;
@@ -309,8 +363,8 @@ static void worker(void *unused)
                         break;
                     }
 
-                    atlas_sector_expand_iop(mode, lba + i, data,
-                                            out + i * out_size);
+                    sector_expand(mode, lba + i, data,
+                                  out + i * out_size);
                 }
             }
         }
@@ -330,77 +384,6 @@ static void worker(void *unused)
             g_callback(SCECdFuncRead);
     }
 }
-
-/* ------------------------------------------------------------------ */
-/* Sector framing                                                      */
-/*                                                                     */
-/* The same rules as src/disc/sector.c, which carries the explanation  */
-/* and the self-check. Repeated because this module cannot link EE     */
-/* code; the two are changed together.                                 */
-/* ------------------------------------------------------------------ */
-
-static const u8 k_sync[12] = {
-    0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00
-};
-
-static u8 to_bcd(u32 v)
-{
-    return (u8)(((v / 10) % 10) * 16 + (v % 10));
-}
-
-static u32 atlas_sector_size_iop(int mode)
-{
-    switch (mode) {
-    case SCECdSecS2048: return 2048;
-    case SCECdSecS2328: return 2328;
-    case SCECdSecS2340: return 2340;
-    default:            return 0;
-    }
-}
-
-static void atlas_sector_expand_iop(int mode, u32 lba, const u8 *data, u8 *out)
-{
-    u32 total = lba + 150;      /* the two-second pre-gap */
-
-    switch (mode) {
-    case SCECdSecS2048:
-        memcpy(out, data, 2048);
-        return;
-
-    case SCECdSecS2328:
-        memcpy(out, data, 2048);
-        memset(out + 2048, 0, 2328 - 2048);
-        return;
-
-    case SCECdSecS2340:
-        out[0] = to_bcd(total / (75 * 60));
-        out[1] = to_bcd((total / 75) % 60);
-        out[2] = to_bcd(total % 75);
-        out[3] = 2;                     /* Mode 2 */
-
-        out[4] = 0;                     /* file    */
-        out[5] = 0;                     /* channel */
-        out[6] = 0x08;                  /* submode: data, form 1 */
-        out[7] = 0;
-        out[8]  = out[4];
-        out[9]  = out[5];
-        out[10] = out[6];
-        out[11] = out[7];
-
-        memcpy(out + 12, data, 2048);
-        memset(out + 12 + 2048, 0, 2340 - 12 - 2048);
-        return;
-
-    default:
-        return;
-    }
-}
-
-/* Referenced by the sync pattern above only in the 2352 path, which
- * sceCdRead() cannot ask for (the datapattern field has no value for
- * it). Kept so the constant lives next to the code that would use it. */
-static void unused_sync_reference(void) { (void)k_sync; }
 
 /* ------------------------------------------------------------------ */
 /* Commands                                                            */
@@ -449,9 +432,10 @@ int sceCdRead0(u32 lbn, u32 sectors, void *buf, sceCdRMode *mode)
     return start_read(lbn, sectors, buf, mode);
 }
 
-int sceCdReadFull(u32 lbn, u32 sectors, void *buf, sceCdRMode *mode)
+int sceCdReadFull(unsigned int lsn, unsigned int sectors, void *buf,
+                  sceCdRMode *mode)
 {
-    return start_read(lbn, sectors, buf, mode);
+    return start_read(lsn, sectors, buf, mode);
 }
 
 /**
@@ -514,7 +498,7 @@ int sceCdStatus(void)
     return 0;                   /* stopped, tray closed, no error */
 }
 
-int sceCdCallback(sceCdCBFunc func)
+sceCdCBFunc sceCdCallback(sceCdCBFunc func)
 {
     sceCdCBFunc old;
     int state;
@@ -529,31 +513,31 @@ int sceCdCallback(sceCdCBFunc func)
     g_callback = func;
     CpuResumeIntr(state);
 
-    return (int)old;
+    return old;
 }
 
-int sceCdGetReadPos(void)
+u32 sceCdGetReadPos(void)
 {
     return 0;
 }
 
-int sceCdPosToInt(sceCdlLOCCD *p)
+u32 sceCdPosToInt(sceCdlLOCCD *p)
 {
     if (!p)
         return 0;
 
-    return (btoi(p->minute) * 60 + btoi(p->second)) * 75
-           + btoi(p->sector) - 150;
+    return (u32)((btoi(p->minute) * 60 + btoi(p->second)) * 75
+                 + btoi(p->sector) - 150);
 }
 
-sceCdlLOCCD *sceCdIntToPos(int i, sceCdlLOCCD *p)
+sceCdlLOCCD *sceCdIntToPos(u32 i, sceCdlLOCCD *p)
 {
     u32 total;
 
     if (!p)
         return 0;
 
-    total = (u32)i + 150;
+    total = i + 150;
 
     p->minute = itob(total / (75 * 60));
     p->second = itob((total / 75) % 60);
@@ -612,9 +596,9 @@ int sceCdStSeek(u32 lbn)
     return 1;
 }
 
-int sceCdStSeekF(u32 lbn)
+int sceCdStSeekF(unsigned int lsn)
 {
-    g_streaming_lba = (int)lbn;
+    g_streaming_lba = (int)lsn;
     return 1;
 }
 
@@ -651,10 +635,10 @@ int sceCdSetHDMode(u32 mode) { (void)mode; return 1; }
 int sceCdSetTimeout(int param, int timeout) { (void)param; (void)timeout; return 1; }
 int sceCdSpinCtrlIOP(u32 speed) { (void)speed; return 1; }
 int sceCdAutoAdjustCtrl(int mode, u32 *result) { (void)mode; if (result) *result = 0; return 1; }
-int sceCdCtrlADout(int mode) { (void)mode; return 1; }
-int sceCdForbidDVDP(void) { return 1; }
-int sceCdForbidRead(void) { return 1; }
-int sceCdBlueLEDCtl(u8 act, u32 *status) { (void)act; if (status) *status = 0; return 1; }
+int sceCdCtrlADout(int mode, u32 *status) { (void)mode; if (status) *status = 0; return 1; }
+int sceCdForbidDVDP(u32 *result) { if (result) *result = 0; return 1; }
+int sceCdForbidRead(u32 *result) { if (result) *result = 0; return 1; }
+int sceCdBlueLEDCtl(u8 control, u32 *result) { (void)control; if (result) *result = 0; return 1; }
 int sceCdCancelPOffRdy(u32 *result) { if (result) *result = 0; return 1; }
 int sceCdBootCertify(const u8 *romname) { (void)romname; return 1; }
 
@@ -669,12 +653,12 @@ int sceCdBootCertify(const u8 *romname) { (void)romname; return 1; }
  * visible, rather than misbehave later, which is not.
  */
 int sceCdGetToc(u8 *toc) { (void)toc; return 0; }
-int sceCdGetToc2(u8 *toc) { (void)toc; return 0; }
-int sceCdSearchFile(void *fp, const char *name) { (void)fp; (void)name; return 0; }
-int sceCdLayerSearchFile(void *fp, const char *name, int layer) { (void)fp; (void)name; (void)layer; return 0; }
+int sceCdGetToc2(u8 *toc, int param) { (void)toc; (void)param; return 0; }
+int sceCdSearchFile(sceCdlFILE *fp, const char *name) { (void)fp; (void)name; return 0; }
+int sceCdLayerSearchFile(sceCdlFILE *fp, const char *name, int layer) { (void)fp; (void)name; (void)layer; return 0; }
 int sceCdReadDVDV(u32 lbn, u32 sectors, void *buf, sceCdRMode *mode) { (void)lbn; (void)sectors; (void)buf; (void)mode; return 0; }
 int sceCdReadCDDA(u32 lbn, u32 sectors, void *buf, sceCdRMode *mode) { (void)lbn; (void)sectors; (void)buf; (void)mode; return 0; }
-int sceCdReadChain(void *chain) { (void)chain; return 0; }
+int sceCdReadChain(sceCdRChain *tag, sceCdRMode *mode) { (void)tag; (void)mode; return 0; }
 int sceCdReadSUBQ(void *buf, u32 *status) { (void)buf; if (status) *status = 0; return 0; }
 int sceCdRI(u8 *buf, u32 *status) { (void)buf; if (status) *status = 0; return 0; }
 int sceCdWI(const u8 *buf, u32 *status) { (void)buf; if (status) *status = 0; return 0; }
@@ -684,39 +668,56 @@ int sceCdRV(u8 *buf, u32 *status) { (void)buf; if (status) *status = 0; return 0
 int sceCdRC(void *clock) { (void)clock; return 0; }
 int sceCdSC(int code, u32 *param) { (void)code; (void)param; return 0; }
 int sceCdMV(u8 *buf, u32 *status) { (void)buf; if (status) *status = 0; return 0; }
-int sceCdReadClock(void *clock) { (void)clock; return 0; }
-int sceCdWriteClock(const void *clock) { (void)clock; return 0; }
+int sceCdReadClock(sceCdCLOCK *clock) { (void)clock; return 0; }
+int sceCdWriteClock(sceCdCLOCK *clock) { (void)clock; return 0; }
 int sceCdReadNVM(u32 addr, u16 *data, u8 *status) { (void)addr; (void)data; if (status) *status = 0; return 0; }
 int sceCdWriteNVM(u32 addr, u16 data, u8 *status) { (void)addr; (void)data; if (status) *status = 0; return 0; }
 int sceCdReadConsoleID(u8 *id, u32 *status) { (void)id; if (status) *status = 0; return 0; }
 int sceCdWriteConsoleID(const u8 *id, u32 *status) { (void)id; if (status) *status = 0; return 0; }
 int sceCdReadDiskID(void *id) { (void)id; return 0; }
 int sceCdReadGUID(u64 *guid) { (void)guid; return 0; }
-int sceCdReadModelID(u32 *id) { (void)id; return 0; }
-int sceCdReadDvdDualInfo(int *on_dual, u32 *layer1_start) {
+int sceCdReadModelID(unsigned int *id) { (void)id; return 0; }
+int sceCdReadDvdDualInfo(int *on_dual, unsigned int *layer1_start) {
     /* The one item in this group this module can answer honestly: the
      * EE side knows the layer break from the image and passed it in. */
     if (on_dual) *on_dual = g_arg.layer1_lba ? 1 : 0;
     if (layer1_start) *layer1_start = g_arg.layer1_lba;
     return 1;
 }
-int sceCdReadKey(u8 arg1, u8 arg2, u32 command, u8 *key) { (void)arg1; (void)arg2; (void)command; (void)key; return 0; }
-int sceCdDecSet(u8 arg1, u8 arg2, u8 arg3) { (void)arg1; (void)arg2; (void)arg3; return 0; }
-int sceCdOpenConfig(int block, int mode, int count, u32 *status) { (void)block; (void)mode; (void)count; if (status) *status = 0; return 0; }
+int sceCdReadKey(unsigned char arg1, unsigned char arg2, unsigned int command,
+                 unsigned char *key)
+{ (void)arg1; (void)arg2; (void)command; (void)key; return 0; }
+int sceCdDecSet(unsigned char enable_xor, unsigned char enable_shift,
+                unsigned char shiftval)
+{ (void)enable_xor; (void)enable_shift; (void)shiftval; return 0; }
+int sceCdOpenConfig(int block, int mode, int NumBlocks, u32 *status)
+{ (void)block; (void)mode; (void)NumBlocks; if (status) *status = 0; return 0; }
 int sceCdCloseConfig(u32 *status) { if (status) *status = 0; return 0; }
 int sceCdReadConfig(void *buf, u32 *status) { (void)buf; if (status) *status = 0; return 0; }
 int sceCdWriteConfig(const void *buf, u32 *status) { (void)buf; if (status) *status = 0; return 0; }
-int sceCdApplySCmd(u8 cmd, const void *in, u16 in_size, void *out) { (void)cmd; (void)in; (void)in_size; (void)out; return 0; }
+int sceCdApplySCmd(u8 cmd, const void *in, u16 in_size, void *out)
+{ (void)cmd; (void)in; (void)in_size; (void)out; return 0; }
 int sceCdApplyNCmd(u8 cmd, const void *in, u16 in_size) { (void)cmd; (void)in; (void)in_size; return 0; }
 int sceGetFsvRbuf(void) { return 0; }
 int sceCdstm0Cb(void *cb) { (void)cb; return 0; }
 int sceCdstm1Cb(void *cb) { (void)cb; return 0; }
 int sceCdPowerOff(u32 *status) { if (status) *status = 0; return 0; }
-int sceCdPOffCallback(void *func, void *arg) { (void)func; (void)arg; return 0; }
+void *sceCdPOffCallback(void (*func)(void *userdata), void *userdata)
+{ (void)func; (void)userdata; return 0; }
 
 /* ------------------------------------------------------------------ */
 /* Entry                                                               */
 /* ------------------------------------------------------------------ */
+
+/*
+ * Ordinals 1-3 of the export table: shutdown, restart, and one the
+ * kernel never calls. Doing nothing is the correct behaviour for all
+ * three - this module holds no hardware to quiesce, and the game it
+ * serves is not going to be shut down and restarted underneath it.
+ */
+void _retonly(void)
+{
+}
 
 /**
  * Find the block device the extents belong to.
@@ -784,30 +785,67 @@ int _start(int argc, char *argv[])
             || src->version != ATLASCDVD_ARG_VERSION)
             return MODULE_NO_RESIDENT_END;
 
-        if (src->frag_count == 0 || src->frag_count > ATLASCDVD_FRAG_MAX)
+        if (src->device != ATLASCDVD_DEV_BDM)
             return MODULE_NO_RESIDENT_END;
 
-        if (src->sector_size == 0 || src->sector_size > SECTOR_BYTES
-            || (src->sector_size & (src->sector_size - 1)) != 0)
-            return MODULE_NO_RESIDENT_END;
-
-        /* An image at or past 4 GB would need 64-bit offsets through
-         * every path in this file. Refused here rather than wrapping
-         * silently at the 4 GB mark, which reads the start of the image
-         * as though it were the end. */
-        if (src->size_hi != 0 || src->size_lo == 0)
-            return MODULE_NO_RESIDENT_END;
-
-        /* Copied, not referenced: the block lives in memory the game
+        /* Copied, not referenced: the block lives in EE memory the game
          * is about to be given. */
         memcpy(&g_arg, src, sizeof(g_arg));
+
+        /* A path the EE side failed to terminate would be walked off
+         * the end of the block. Terminated here rather than trusted,
+         * because the cost of being wrong is reading whatever follows
+         * it in memory as a filename. */
+        g_arg.path[ATLASCDVD_PATH_MAX - 1] = 0;
+
+        if (g_arg.path[0] == 0)
+            return MODULE_NO_RESIDENT_END;
     }
 
     if (find_device() != 0)
         return MODULE_NO_RESIDENT_END;
 
-    g_disk_type = (g_arg.flags & ATLASCDVD_F_FORCE_DVD) ? SCECdPS2DVD
-                                                        : SCECdPS2DVD;
+    /*
+     * The one and only time this module reads a filesystem.
+     *
+     * It happens here, in _start, because here the IOP is doing nothing
+     * else: the game's modules are not loaded, its threads do not
+     * exist, and no DMA of its is in flight. Every read after this
+     * point is a raw sector read against the list built now.
+     *
+     * A failure is a refusal to stay resident, not a module that loads
+     * and fails every read. A game that never starts is one problem; a
+     * game that starts and reads garbage is several, and the user
+     * cannot tell the second from a bad dump.
+     */
+    if (atlas_frag_build(frag_read_cb, 0, g_arg.path, &g_fl) != ATLAS_OK)
+        return MODULE_NO_RESIDENT_END;
+
+    /* frag.c guarantees an empty list on failure, so this cannot be a
+     * partial one. Checked anyway: the whole module is built on that
+     * guarantee and it costs two comparisons to stop trusting it. */
+    if (g_fl.count <= 0 || g_fl.size == 0 || g_fl.sector_size == 0)
+        return MODULE_NO_RESIDENT_END;
+
+    /* Reads are framed in 2048-byte disc sectors and served from device
+     * sectors. A device whose sectors are larger than a disc sector -
+     * a 4K-native drive - would need the arithmetic in image_read() to
+     * work the other way round, and silently reading the wrong offsets
+     * is not the way to find that out. */
+    if (g_fl.sector_size > SECTOR_BYTES
+        || (g_fl.sector_size & (g_fl.sector_size - 1)) != 0)
+        return MODULE_NO_RESIDENT_END;
+
+    /*
+     * A CD holds 360000 sectors at most, so anything larger cannot be
+     * one. The reverse does not hold: plenty of DVD titles are smaller
+     * than a CD, and one of those reported as a CD will refuse to boot.
+     * That is what `force_dvd` in COMPAT.INI is for, and it is the
+     * first thing to try when a title stops at its own logo.
+     */
+    g_disk_type = ((g_arg.flags & ATLASCDVD_F_FORCE_DVD)
+                   || g_fl.size > 360000u * SECTOR_BYTES)
+                  ? SCECdPS2DVD : SCECdPS2CD;
 
     {
         iop_sema_t sp;
@@ -854,7 +892,7 @@ int _start(int argc, char *argv[])
     if (RegisterLibraryEntries(&_exp_cdvdman) != 0)
         return MODULE_NO_RESIDENT_END;
 
-    unused_sync_reference();
+
 
     return MODULE_RESIDENT_END;
 }

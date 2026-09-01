@@ -21,8 +21,14 @@ EE_BIN = build/ATLASPS2.ELF
 IRX_LIST = iomanX fileXio sio2man padman mcman mcserv \
            usbd bdm bdmfs_fatfs usbmass_bd poweroff
 
-IRX_C   = $(IRX_LIST:%=build/irx/%_irx.c)
-IRX_OBJ = $(IRX_LIST:%=build/irx/%_irx.o)
+# Ours, not the SDK's: the module a game reads its disc through.
+# Built from source by iop/atlascdvd/Makefile with the IOP toolchain -
+# a different compiler from the one that builds everything else here -
+# then embedded the same way as the modules above.
+ATLAS_IRX = build/irx/atlascdvd_irx.c
+
+IRX_C   = $(IRX_LIST:%=build/irx/%_irx.c) $(ATLAS_IRX)
+IRX_OBJ = $(IRX_LIST:%=build/irx/%_irx.o) $(ATLAS_IRX:%.c=%.o)
 
 # ------------------------------------------------------------------ #
 # Sources                                                             #
@@ -59,6 +65,9 @@ EE_SRC = \
 	src/disc/compat.c \
 	src/disc/compat_io.c \
 	src/disc/frag.c \
+	src/disc/sector.c \
+	src/disc/profile.c \
+	src/disc/profile_io.c \
 	src/ui/font.c \
 	src/ui/theme.c \
 	src/ui/theme_io.c \
@@ -164,6 +173,21 @@ build/irx/%_irx.c: $(PS2SDK)/iop/irx/%.irx
 	$(DIR_GUARD)
 	$(PS2SDK)/bin/bin2c $< $@ $*_irx
 
+# Our own module, from source. The sub-make runs every time: an .irx is
+# not something make can judge up to date from here, its sources being
+# under a Makefile with rules of its own, and the build takes seconds.
+# The ordinal check in that Makefile runs before its link, so an export
+# table that has drifted stops this build too.
+.PHONY: iop-modules
+iop-modules:
+	@$(MAKE) -C iop/atlascdvd
+
+iop/atlascdvd/atlascdvd.irx: iop-modules
+
+build/irx/atlascdvd_irx.c: iop/atlascdvd/atlascdvd.irx
+	$(DIR_GUARD)
+	$(PS2SDK)/bin/bin2c $< $@ atlascdvd_irx
+
 $(OBJ_DIR)/%.o: %.c
 	$(DIR_GUARD)
 	$(EE_C_COMPILE) -c $< -o $@
@@ -236,6 +260,7 @@ check:
 
 clean:
 	$(MAKE) -C tests clean
+	$(MAKE) -C iop/atlascdvd clean
 	rm -rf build
 
 include $(PS2SDK)/samples/Makefile.pref

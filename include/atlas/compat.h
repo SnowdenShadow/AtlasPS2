@@ -99,11 +99,19 @@ extern "C" {
  * for almost everything. The override exists for the discs whose ID
  * prefix does not match how they were mastered, and for a user with a
  * display that only accepts one of the two.
+ *
+ * DRIVE_MODE, not VMODE, and deliberately not the video module's enum.
+ * This decides what the game is told; atlas_vmode_t decides what the
+ * Graphics Synthesizer actually outputs, and they are set from
+ * different places for different reasons. They were once spelled the
+ * same, which made compat.h and video.h impossible to include in one
+ * file - a collision that only surfaced when something finally needed
+ * both, which is precisely what launching a disc does.
  */
 typedef enum {
-    ATLAS_VMODE_AUTO = 0,
-    ATLAS_VMODE_NTSC,
-    ATLAS_VMODE_PAL
+    ATLAS_DRIVE_MODE_AUTO = 0,
+    ATLAS_DRIVE_MODE_NTSC,
+    ATLAS_DRIVE_MODE_PAL
 } atlas_compat_vmode_t;
 
 typedef struct {
