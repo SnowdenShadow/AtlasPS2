@@ -54,8 +54,10 @@ int main(int argc, char *argv[])
     if (atlas_boot_iop_init(&status) == ATLAS_EFATAL)
         return 1;
 
-    if (status.pad)
-        atlas_input_init();
+    /* Unconditional, for the reason given in src/main.c: a module that
+     * is already resident is reported as a failed load, and gating on
+     * that verdict leaves the installer unable to read a button. */
+    status.pad = (atlas_input_init() == ATLAS_OK);
 
     /*
      * Safe defaults, never anything stored. The installer has to be

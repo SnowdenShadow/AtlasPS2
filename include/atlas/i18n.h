@@ -296,6 +296,14 @@ extern "C" {
     X(POWER_D_RESTART, "power.d.restart",                                    \
         "Load AtlasPS2 again from the file it was started from.",            \
         "Recharger AtlasPS2 depuis le fichier qui l'a d\xc3\xa9marr\xc3\xa9.") \
+    /* No controller. Drawn over the interface when nothing has ever      */\
+    /* answered, because a screen that ignores every button looks exactly */\
+    /* like a crash and the user cannot tell which they are looking at.   */\
+    X(PAD_NONE_TITLE,  "pad.none.title",    "No controller",                 \
+                                            "Aucune manette")                \
+    X(PAD_NONE_BODY,   "pad.none.body",                                      \
+        "Plug a controller into port 1. It is picked up automatically.",      \
+        "Branchez une manette sur le port 1. Elle est d\xc3\xa9tect\xc3\xa9""e toute seule.") \
     /* Placeholder screen. */                                                \
     X(TODO_TITLE,      "todo.title",        "Coming soon",    "\xc3\x80 venir") \
     X(TODO_BODY,       "todo.body",         "Not implemented yet in this build.", \

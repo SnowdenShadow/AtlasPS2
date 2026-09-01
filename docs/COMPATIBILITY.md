@@ -52,8 +52,17 @@ unbounded waits the console reaches the interface and draws it.
 
 `PARTIAL` and not `WORKS`, because that is all that has been confirmed.
 Nobody has yet reported a Memory Card write, a USB stick enumerating, an
-application launching, or a game booting on that console — and the pad
-fix that went in alongside has not been confirmed on hardware at all.
+application launching, or a game booting on that console.
+
+The second report from the same console reached the first-boot wizard
+and **no button did anything**, which is a separate fault from the black
+screen and was fixed separately: `padInit()` was rejected on a success
+code the header does not document, `padPortOpen()` was tried once where
+PADMAN needs a moment after an IOP reset, `padGetState()` returning
+`DISCONN` on the first sample was read as "no pad" rather than "not
+awake yet", and pad initialisation was skipped entirely whenever the
+module load reported failure — which it does when a previous loader
+left PADMAN resident. **Not yet confirmed on hardware.**
 
 ### What "PCSX2 PARTIAL" means here
 
@@ -87,7 +96,7 @@ same time, and most are.
 | File manager with confirmations | implemented | System paths warn twice |
 | Configuration with `.BAK` recovery | implemented | |
 | Themes | implemented | Built-in theme is compiled in and cannot be removed |
-| French / English | implemented | 281 strings, French is the reference |
+| French / English | implemented | 283 strings, French is the reference |
 | Installer: install / update / repair | implemented | |
 | Installer: backup / restore / uninstall | implemented | |
 | Transactional boot swap with rollback | implemented | `BOOT.NEW` → verify → `BOOT.BAK` swap |

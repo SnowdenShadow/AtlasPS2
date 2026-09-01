@@ -10,6 +10,7 @@
 #include "atlas/theme.h"
 #include "atlas/ui.h"
 #include "atlas/device.h"
+#include "atlas/i18n.h"
 #include "atlas/log.h"
 
 static atlas_screen_t *s_stack[ATLAS_SCREEN_STACK_MAX];
@@ -156,8 +157,37 @@ int atlas_screen_exit_requested(void)
 /* Main loop                                                           */
 /* ------------------------------------------------------------------ */
 
+/*
+ * How long an interface may go without ever hearing from a controller
+ * before it says so, in frames. About two seconds, which is longer than
+ * a pad plugged in at power-on takes to answer and short enough that a
+ * user who is pressing buttons at nothing does not sit there wondering.
+ *
+ * The condition is "has NEVER answered", not "is not answering now": a
+ * controller unplugged mid-session is a different situation, the user
+ * knows what they just did, and covering the screen for it would be
+ * noise.
+ */
+#define NO_PAD_GRACE_FRAMES 120
+
+/**
+ * Say that nothing is plugged in, over whatever screen is up.
+ *
+ * Drawn here rather than in each screen because it applies to all of
+ * them, and because the screen it matters most on is the first-boot
+ * wizard - the one screen with no way out and no Back.
+ */
+static void draw_no_pad(void)
+{
+    atlas_ui_message_box(atlas_str(ATLAS_STR_PAD_NONE_TITLE),
+                         atlas_str(ATLAS_STR_PAD_NONE_BODY),
+                         NULL);
+}
+
 void atlas_screen_run(void)
 {
+    int no_pad_frames = 0;
+
     while (!s_exit && s_depth > 0) {
         atlas_screen_t *top = s_stack[s_depth - 1];
 
@@ -185,6 +215,13 @@ void atlas_screen_run(void)
 
         if (top->draw)
             top->draw(top);
+
+        if (!atlas_input_ever_connected()) {
+            if (no_pad_frames < NO_PAD_GRACE_FRAMES)
+                no_pad_frames++;
+            else
+                draw_no_pad();
+        }
 
         atlas_video_frame_end();
 

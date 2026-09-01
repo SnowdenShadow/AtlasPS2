@@ -98,6 +98,11 @@ untidy.
       one in. It should be picked up.
 - [ ] **hardware** Controller in port 2 only. Note the result — port 1 is
       what is assumed.
+- [ ] **hardware** Boot with no controller at all and wait. After about
+      two seconds the interface says so, over whatever screen is up. It
+      must not simply sit there ignoring input — an interface that draws
+      correctly and answers nothing is indistinguishable from a crash,
+      and that ambiguity is what this message exists to remove.
 
 ### Devices
 

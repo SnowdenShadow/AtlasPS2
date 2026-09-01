@@ -109,6 +109,17 @@ int atlas_input_is_pressed(atlas_btn_t btn);
 int atlas_input_connected(void);
 
 /**
+ * Non-zero once any controller has EVER answered since boot.
+ *
+ * The difference from atlas_input_connected() is what it can be used to
+ * say. A screen that has never seen a pad is a screen the user cannot
+ * leave, and that state must be visible: an interface that draws
+ * perfectly and ignores every button is indistinguishable from a hang,
+ * and the user has no way to tell which they are looking at.
+ */
+int atlas_input_ever_connected(void);
+
+/**
  * Raw libpad button mask for port 0, already inverted so a set bit means
  * "pressed". Used by boot-time hotkey detection, which runs before the
  * logical mapping exists.

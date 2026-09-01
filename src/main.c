@@ -480,8 +480,22 @@ int main(int argc, char *argv[])
     if (err == ATLAS_EFATAL)
         return 1;
 
-    if (status.pad)
-        atlas_input_init();
+    /*
+     * Tried unconditionally, not only when the module load reported
+     * success.
+     *
+     * SifExecModuleBuffer() reports a failure when the module is
+     * already resident, which is what happens when the loader that
+     * launched us left its own PADMAN behind - a working pad reported
+     * as a failed one. Gating on that verdict skipped pad
+     * initialisation entirely and left an interface that drew correctly
+     * and answered nothing.
+     *
+     * The reverse is cheap: on a console that really has no PADMAN,
+     * padInit() returns a negative value and this gives up in
+     * milliseconds.
+     */
+    status.pad = (atlas_input_init() == ATLAS_OK);
 
     keys = read_hotkeys();
 

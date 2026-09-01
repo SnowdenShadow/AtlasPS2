@@ -38,6 +38,7 @@ static u16 s_raw;
 static int s_stick_x;
 static int s_stick_y;
 static int s_any_connected;
+static int s_ever_connected;
 static int s_initialised;
 
 static atlas_pad_layout_t s_layout = ATLAS_LAYOUT_CROSS_CONFIRM;
@@ -114,12 +115,33 @@ static u32 map_buttons(u16 raw)
 #define ATLAS_PAD_READY_TIMEOUT_US 1500000
 #define ATLAS_PAD_POLL_INTERVAL_US 2000
 
+/*
+ * How long to keep asking padPortOpen() before giving up on a port.
+ *
+ * padInit() returns as soon as its RPC bindings exist, which is not the
+ * same as PADMAN having finished setting its ports up. On a real
+ * console the first padPortOpen() after an IOP reset can be refused for
+ * a few tens of milliseconds; under an emulator it never is. A single
+ * attempt therefore succeeds in development and fails on hardware, and
+ * a failed open is silent - every button reads as "not pressed" for the
+ * rest of the session, which is exactly the symptom that was reported.
+ */
+#define ATLAS_PAD_OPEN_TIMEOUT_US   2000000
+#define ATLAS_PAD_OPEN_INTERVAL_US    10000
+
 /**
  * Wait for one port to reach a state in which padRead() returns real
  * button data, or for the timeout to expire.
  *
  * FINDCTP1 is accepted alongside STABLE because the SDK sample accepts
  * it: a digital pad settles there and never reaches STABLE at all.
+ *
+ * DISCONN is NOT treated as a final answer, which it was and should not
+ * have been. A port reports DISCONN both for "nothing is plugged in"
+ * and for "the pad has not started answering yet", and the second is
+ * the normal state for the first tens of milliseconds after an open.
+ * Returning on the first sample turned a pad that was still waking up
+ * into a pad that was declared absent.
  *
  * @return 1 if the pad is usable, 0 if it never became ready.
  */
@@ -134,15 +156,27 @@ static int wait_port_ready(int port)
         if (state == PAD_STATE_STABLE || state == PAD_STATE_FINDCTP1)
             return 1;
 
-        /*
-         * DISCONN is the answer for an empty port, and it is a final
-         * one: there is nothing to wait for, so do not spend the
-         * timeout discovering that twice.
-         */
-        if (state == PAD_STATE_DISCONN)
-            return 0;
-
         DelayThread(ATLAS_PAD_POLL_INTERVAL_US);
+    }
+
+    return 0;
+}
+
+/**
+ * Open one port, retrying while PADMAN refuses.
+ *
+ * @return 1 if the port is open, 0 if it never opened.
+ */
+static int open_port(int port)
+{
+    int waited;
+
+    for (waited = 0; waited < ATLAS_PAD_OPEN_TIMEOUT_US;
+         waited += ATLAS_PAD_OPEN_INTERVAL_US) {
+        if (padPortOpen(port, 0, s_pad_buf[port]) != 0)
+            return 1;
+
+        DelayThread(ATLAS_PAD_OPEN_INTERVAL_US);
     }
 
     return 0;
@@ -153,6 +187,7 @@ atlas_err_t atlas_input_init(void)
     int port;
     int opened = 0;
     int ready = 0;
+    int rc;
 
     if (s_initialised)
         return ATLAS_OK;
@@ -160,14 +195,22 @@ atlas_err_t atlas_input_init(void)
     /*
      * The IOP side (SIO2MAN + PADMAN) is loaded by the boot module before
      * we get here; padInit() only sets up the EE half of libpad.
+     *
+     * The header documents "== 1 => OK", and the implementation does not
+     * agree with it: libpad returns 0 from the path it takes when the
+     * RPC bindings are already in place, 1 from the ordinary path, and a
+     * negative value on failure. Requiring exactly 1 rejected a
+     * successful call - and rejecting it here is fatal, because nothing
+     * downstream ever asks again. Only a negative result is a failure.
      */
-    if (padInit(0) != 1) {
-        ATLAS_LOG("PAD", "padInit failed");
+    rc = padInit(0);
+    if (rc < 0) {
+        ATLAS_LOG("PAD", "padInit failed (%d)", rc);
         return ATLAS_ENODEV;
     }
 
     for (port = 0; port < ATLAS_PAD_PORTS; port++) {
-        if (padPortOpen(port, 0, s_pad_buf[port]) != 0) {
+        if (open_port(port)) {
             s_port[port].open = 1;
             opened++;
         } else {
@@ -186,19 +229,25 @@ atlas_err_t atlas_input_init(void)
      * pressed - which looks exactly like a user who is not pressing
      * anything, and is why every button appeared dead.
      *
-     * A port that never becomes ready is left open regardless: a pad
-     * plugged in later still arrives through the ordinary per-frame
-     * poll, and refusing to open the port would make hot-plug
-     * impossible.
+     * Only the FIRST port is waited on. Waiting on both costs the full
+     * timeout for the empty one, and the overwhelmingly common case is
+     * a single pad in port 1: a second port with nothing in it would
+     * add a second and a half of black screen to every boot to discover
+     * something the per-frame poll finds for free.
      */
     for (port = 0; port < ATLAS_PAD_PORTS; port++) {
-        if (s_port[port].open && wait_port_ready(port))
+        if (!s_port[port].open)
+            continue;
+
+        if (wait_port_ready(port)) {
             ready++;
+            break;
+        }
     }
 
     s_initialised = 1;
-    ATLAS_LOG("PAD", "initialised, %d port(s) open, %d ready",
-              opened, ready);
+    ATLAS_LOG("PAD", "initialised (padInit %d), %d port(s) open, %d ready",
+              rc, opened, ready);
     return ATLAS_OK;
 }
 
@@ -222,6 +271,7 @@ void atlas_input_shutdown(void)
     s_held = s_prev_held = s_pressed = s_released = s_repeated = 0;
     s_raw = 0;
     s_any_connected = 0;
+    s_ever_connected = 0;
     s_initialised = 0;
 
     ATLAS_LOG("PAD", "shutdown");
@@ -319,6 +369,9 @@ void atlas_input_update(void)
     s_raw       = raw;
     s_any_connected = connected;
 
+    if (connected)
+        s_ever_connected = 1;
+
     /* --- key repeat ------------------------------------------------ */
 
     s_repeated = s_pressed;
@@ -365,6 +418,11 @@ int atlas_input_is_pressed(atlas_btn_t btn)
 int atlas_input_connected(void)
 {
     return s_any_connected;
+}
+
+int atlas_input_ever_connected(void)
+{
+    return s_ever_connected;
 }
 
 u16 atlas_input_raw(void)
