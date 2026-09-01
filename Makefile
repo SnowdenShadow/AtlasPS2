@@ -19,7 +19,8 @@ EE_BIN = build/ATLASPS2.ELF
 # ------------------------------------------------------------------ #
 
 IRX_LIST = iomanX fileXio sio2man padman mcman mcserv \
-           usbd bdm bdmfs_fatfs usbmass_bd poweroff
+           usbd bdm bdmfs_fatfs usbmass_bd poweroff \
+           ps2dev9 ps2atad ps2hdd ps2fs
 
 # Ours, not the SDK's: the module a game reads its disc through.
 # Built from source by iop/atlascdvd/Makefile with the IOP toolchain -
@@ -122,7 +123,7 @@ EE_LDFLAGS += -L$(GSKIT)/lib -L$(PS2SDK)/ports/lib
 # the IOP and jumps. It must come before -lpatches: it calls the SBV
 # patch helpers, and the linker resolves left to right.
 EE_LIBS    += -lgskit -ldmakit -lelf-loader -lpatches -lfileXio -lpadx \
-              -lmc -lpoweroff -lioprpgen -liopreboot
+              -lmc -lhdd -lpoweroff -lioprpgen -liopreboot
 
 EE_CFLAGS  += -Wall -Wextra -Wno-unused-parameter
 

@@ -87,7 +87,7 @@ same time, and most are.
 | Recovery mode (hold L1+R1) | implemented | No theme, no config read, minimal drawing |
 | Memory Card browsing (mc0, mc1) | implemented | |
 | USB mass storage | implemented | `bdm` + `bdmfs_fatfs` + `usbmass_bd` |
-| Internal HDD | **not implemented** | No `ATAD`/`HDD`/`PFS` modules are loaded |
+| Internal HDD | implemented, read-only | `ps2dev9`/`ps2atad`/`ps2hdd`/`ps2fs`; only the `__common` PFS partition is mounted, read-only |
 | MX4SIO (SD over the memory card port) | **not implemented** | Needs a driver this repository does not contain |
 | Network (SMB, host:) | **not implemented** | No network stack is linked |
 | ELF launching | implemented | `LoadExecPS2` after cleanup |
@@ -106,13 +106,24 @@ same time, and most are.
 | Booting a game from an image | written, **never run** | The IOP module builds and links; no console has executed it — see [DISC.md](DISC.md) |
 | Bootstrap / exploit installation | **deliberately absent** | See below |
 
-### Why HDD, MX4SIO and network are listed as not implemented
+### Why MX4SIO and network are listed as not implemented
 
 Because they are. Each needs IOP driver modules that are not in this
 repository, and a menu entry that opens onto a device that cannot mount
 is worse than an absent one — it reads as a fault in the user's hardware
 rather than an absent feature. When the drivers are added, these rows
 change and the device manager grows the entries.
+
+### What the internal HDD support does and does not do
+
+`ps2fs.irx` is ps2sdk's own PFS driver, not a Sony binary — the same
+posture as `atlascdvd` for disc emulation. Only the `__common` partition
+is mounted, and only read-only (`FIO_MT_RDONLY` at the `fileXioMount()`
+call, not just "nothing calls write"). A drive holding HDLoader-style
+game installs has one PFS filesystem per game; browsing those, writing
+to the HDD, formatting it, or booting a game directly from it are all
+**not implemented** — separate, larger features, tracked as future work,
+not attempted here given the real data on a user's physical drive.
 
 ### Why bootstrap installation is deliberately absent
 

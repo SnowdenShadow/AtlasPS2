@@ -37,6 +37,10 @@ ATLAS_IRX(usbd);
 ATLAS_IRX(bdm);
 ATLAS_IRX(bdmfs_fatfs);
 ATLAS_IRX(usbmass_bd);
+ATLAS_IRX(ps2dev9);
+ATLAS_IRX(ps2atad);
+ATLAS_IRX(ps2hdd);
+ATLAS_IRX(ps2fs);
 ATLAS_IRX(poweroff);
 
 #undef ATLAS_IRX
@@ -228,6 +232,31 @@ atlas_err_t atlas_boot_load_usb(void)
     return ATLAS_OK;
 }
 
+/*
+ * Each module depends on the one before it: ps2atad needs ps2dev9's
+ * controller up, ps2hdd needs ps2atad to read sectors through, and
+ * ps2fs needs ps2hdd's partition table to find a filesystem to mount.
+ * Like the memory card group, failure here is never fatal - a console
+ * with no HDD or no network adaptor simply never sees ATLAS_DEV_HDD
+ * become ready.
+ */
+static atlas_err_t load_hdd(void)
+{
+    if (LOAD(ps2dev9, 0, NULL) != ATLAS_OK)
+        return ATLAS_EFAIL;
+
+    if (LOAD(ps2atad, 0, NULL) != ATLAS_OK)
+        return ATLAS_EFAIL;
+
+    if (LOAD(ps2hdd, 0, NULL) != ATLAS_OK)
+        return ATLAS_EFAIL;
+
+    if (LOAD(ps2fs, 0, NULL) != ATLAS_OK)
+        return ATLAS_EFAIL;
+
+    return ATLAS_OK;
+}
+
 static atlas_err_t load_poweroff(void)
 {
     return LOAD(poweroff, 0, NULL);
@@ -273,6 +302,11 @@ atlas_err_t atlas_boot_iop_init(atlas_boot_status_t *status)
 
     if (atlas_boot_load_usb() != ATLAS_OK)
         ATLAS_LOG("BOOT", "USB unavailable, continuing without it");
+
+    if (load_hdd() == ATLAS_OK)
+        s_status.hdd = 1;
+    else
+        ATLAS_LOG("BOOT", "HDD modules unavailable");
 
     if (load_poweroff() == ATLAS_OK)
         s_status.poweroff = 1;

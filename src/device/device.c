@@ -14,6 +14,8 @@
  */
 #define NEWLIB_PORT_AWARE
 #include <fileXio_rpc.h>
+#include <io_common.h>
+#include <libhdd.h>
 
 #include "atlas/device.h"
 #include "atlas/path.h"
@@ -26,6 +28,7 @@
 static atlas_device_t s_dev[ATLAS_DEV_COUNT];
 static int s_have_memcard;
 static int s_have_usb;
+static int s_have_hdd;
 static int s_cursor;        /* which device the next poll will probe */
 static int s_ready;
 
@@ -211,10 +214,108 @@ static int poll_mass(atlas_device_t *d)
 }
 
 /* ------------------------------------------------------------------ */
+/* Internal HDD                                                        */
+/* ------------------------------------------------------------------ */
+
+/*
+ * hddCheckPresent()/hddCheckFormatted()/hddGetFilesystemList() all wrap
+ * a blocking fileXioDevctl()/fileXioDopen() RPC to ps2hdd.irx - libhdd
+ * has no NOWAIT variant of these the way libmc does. It is a single RPC
+ * per call though, not poll_mass()'s open+close pair, so like a Memory
+ * Card slot it is throttled by the shared steady-recheck cooldown alone
+ * (see the ATLAS_DEV_HDD case added to that condition below) rather than
+ * needing its own backoff counter on top of it.
+ */
+static int s_hdd_mounted;
+
+/**
+ * Probe the internal HDD and mount its "__common" partition read-only.
+ *
+ * Read-only is not just policy here: FIO_MT_RDONLY is passed to
+ * fileXioMount() itself, so the mount refuses writes at the driver
+ * level regardless of what any caller above this file does later.
+ *
+ * Only "__common" is mounted - a drive with HDLoader-style game
+ * partitions has one PFS filesystem per game, and turning all of them
+ * into browsable slots is future work, not this one.
+ */
+static int poll_hdd(atlas_device_t *d)
+{
+    t_hddFilesystem fs[16];
+    int i, n;
+
+    if (!s_have_hdd) {
+        d->state = ATLAS_DEV_ABSENT;
+        return 1;
+    }
+
+    if (d->state == ATLAS_DEV_READY) {
+        /* Confirm the drive is still there; nothing to remount if so. */
+        if (hddCheckPresent() < 0) {
+            if (s_hdd_mounted) {
+                fileXioUmount("pfs0:");
+                s_hdd_mounted = 0;
+            }
+            d->state = ATLAS_DEV_ABSENT;
+            d->detail = NULL;
+            d->free_kb = -1;
+        }
+        return 1;
+    }
+
+    if (hddCheckPresent() < 0) {
+        d->state = ATLAS_DEV_ABSENT;
+        d->detail = NULL;
+        d->free_kb = -1;
+        return 1;
+    }
+
+    if (hddCheckFormatted() < 0) {
+        d->state = ATLAS_DEV_UNFORMATTED;
+        d->detail = "HDD is not initialised";
+        d->free_kb = -1;
+        return 1;
+    }
+
+    n = hddGetFilesystemList(fs, 16);
+    if (n < 0) {
+        d->state = ATLAS_DEV_ERROR;
+        d->detail = "HDD partition table unreadable";
+        d->free_kb = -1;
+        return 1;
+    }
+
+    for (i = 0; i < n; i++) {
+        if (strcmp(fs[i].filename, "hdd0:__common") == 0)
+            break;
+    }
+
+    if (i == n) {
+        d->state = ATLAS_DEV_ERROR;
+        d->detail = "No __common partition on this HDD";
+        d->free_kb = -1;
+        return 1;
+    }
+
+    if (fileXioMount("pfs0:", fs[i].filename, FIO_MT_RDONLY) < 0) {
+        d->state = ATLAS_DEV_ERROR;
+        d->detail = "__common partition failed to mount";
+        d->free_kb = -1;
+        return 1;
+    }
+
+    s_hdd_mounted = 1;
+    d->state = ATLAS_DEV_READY;
+    d->detail = NULL;
+    d->free_kb = (int)fs[i].freeSpace * 1024; /* MB -> KB */
+    return 1;
+}
+
+/* ------------------------------------------------------------------ */
 /* Lifecycle                                                           */
 /* ------------------------------------------------------------------ */
 
-atlas_err_t atlas_device_init(int have_memcard, int have_usb)
+atlas_err_t atlas_device_init(int have_memcard, int have_usb, int have_hdd)
 {
     int i;
 
@@ -222,7 +323,7 @@ atlas_err_t atlas_device_init(int have_memcard, int have_usb)
         "Memory Card 1", "Memory Card 2", "USB", "HDD"
     };
     static const char *paths[ATLAS_DEV_COUNT] = {
-        "mc0:", "mc1:", "mass:", "hdd0:"
+        "mc0:", "mc1:", "mass:", "pfs0:"
     };
 
     memset(s_dev, 0, sizeof(s_dev));
@@ -238,8 +339,10 @@ atlas_err_t atlas_device_init(int have_memcard, int have_usb)
 
     s_have_memcard = have_memcard;
     s_have_usb     = have_usb;
+    s_have_hdd     = have_hdd;
     s_cursor       = 0;
     s_mass_backoff = 0;
+    s_hdd_mounted  = 0;
     memset(s_recheck, 0, sizeof(s_recheck));
     memset(s_mc_probe, 0, sizeof(s_mc_probe));
 
@@ -257,7 +360,8 @@ atlas_err_t atlas_device_init(int have_memcard, int have_usb)
 
     s_ready = 1;
 
-    ATLAS_LOG("DEV", "init mc=%d usb=%d", s_have_memcard, s_have_usb);
+    ATLAS_LOG("DEV", "init mc=%d usb=%d hdd=%d",
+              s_have_memcard, s_have_usb, s_have_hdd);
 
     return ATLAS_OK;
 }
@@ -289,13 +393,7 @@ int atlas_device_poll(void)
             settled = poll_mass(d);
             break;
         case ATLAS_DEV_HDD:
-            /*
-             * The HDD needs its own module set (dev9, atad, hdd, pfs) that
-             * is not loaded yet, and mounting a partition is a separate
-             * step. Until then it is honestly absent rather than shown as
-             * an entry that fails when opened.
-             */
-            d->state = ATLAS_DEV_ABSENT;
+            settled = poll_hdd(d);
             break;
         default:
             break;
@@ -317,7 +415,8 @@ int atlas_device_poll(void)
              */
             s_recheck[s_cursor] =
                 (d->state == ATLAS_DEV_READY ||
-                 d->id == ATLAS_DEV_MC0 || d->id == ATLAS_DEV_MC1)
+                 d->id == ATLAS_DEV_MC0 || d->id == ATLAS_DEV_MC1 ||
+                 d->id == ATLAS_DEV_HDD)
                     ? STEADY_RECHECK_TURNS : 0;
         }
     }
@@ -383,6 +482,16 @@ atlas_err_t atlas_device_path(atlas_device_id_t id, const char *rel,
 void atlas_device_shutdown(void)
 {
     int i;
+
+    /*
+     * Unlike mc0:/mass:, pfs0: is a mount this file created explicitly
+     * with fileXioMount() and nothing else owns it - leaving it mounted
+     * across an ELF launch would hand the next program a stale handle.
+     */
+    if (s_hdd_mounted) {
+        fileXioUmount("pfs0:");
+        s_hdd_mounted = 0;
+    }
 
     for (i = 0; i < ATLAS_DEV_COUNT; i++)
         s_dev[i].state = ATLAS_DEV_ABSENT;

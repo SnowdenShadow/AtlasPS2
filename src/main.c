@@ -540,7 +540,7 @@ int main(int argc, char *argv[])
      * splash a stick is usually already mounted and the first poll
      * finds it.
      */
-    atlas_device_init(status.memcard, status.usb);
+    atlas_device_init(status.memcard, status.usb, status.hdd);
 
     /* Only now can the path be opened to see whether it is real. */
     atlas_power_set_self_path(self_path);

@@ -16,6 +16,11 @@
  * it and must be called from the update half of the frame, never from
  * draw - a draw path that blocks turns a 60 Hz interface into a
  * stuttering one.
+ *
+ * The mount path is not always the block device name: the HDD mounts as
+ * "pfs0:" (a PFS filesystem fileXioMount()ed on top of the "hdd0:"
+ * block device), the same way mc0:/mass: are already filesystem-level
+ * paths rather than raw device names.
  */
 #ifndef ATLAS_DEVICE_H
 #define ATLAS_DEVICE_H
@@ -31,7 +36,7 @@ typedef enum {
     ATLAS_DEV_MC0 = 0,  /**< Memory Card slot 1            */
     ATLAS_DEV_MC1,      /**< Memory Card slot 2            */
     ATLAS_DEV_MASS,     /**< USB mass storage, first volume */
-    ATLAS_DEV_HDD,      /**< Internal HDD (not yet mounted) */
+    ATLAS_DEV_HDD,      /**< Internal HDD, "__common" partition, read-only */
     ATLAS_DEV_COUNT
 } atlas_device_id_t;
 
@@ -78,8 +83,9 @@ typedef struct {
  *
  * @param have_memcard  the mcman/mcserv modules loaded
  * @param have_usb      the usbd/bdm stack loaded
+ * @param have_hdd      the ps2dev9/ps2atad/ps2hdd/ps2fs stack loaded
  */
-atlas_err_t atlas_device_init(int have_memcard, int have_usb);
+atlas_err_t atlas_device_init(int have_memcard, int have_usb, int have_hdd);
 
 /**
  * Refresh the cache. Call from update, not from draw.

@@ -33,6 +33,7 @@ typedef struct {
     int pad;         /* sio2man + padman: controllers               */
     int memcard;     /* mcman + mcserv: memory cards                */
     int usb;         /* usbd + bdm + fatfs: USB mass storage        */
+    int hdd;         /* ps2dev9 + ps2atad + ps2hdd + ps2fs: HDD     */
     int poweroff;    /* poweroff: software power-off support        */
 } atlas_boot_status_t;
 
