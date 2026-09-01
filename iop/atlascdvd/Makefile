@@ -11,12 +11,13 @@
 
 IOP_BIN  = atlascdvd.irx
 
-# frag.o is src/disc/frag.c, the EE side's FAT reader, compiled a second
-# time by this toolchain. It is shared rather than copied because
-# tests/test_frag.c is run against it on every build - see the note in
-# atlascdvd.h about why two copies of that arithmetic would be worse
-# than none.
-IOP_OBJS = exports.o imports.o main.o frag.o
+# frag.o and sector.o are src/disc/frag.c and src/disc/sector.c, the EE
+# side's FAT reader and sector framing, compiled a second time by this
+# toolchain. They are shared rather than copied because
+# tests/test_frag.c and tests/test_sector.c are run against them on
+# every build - see the note in atlascdvd.h about why two copies of that
+# arithmetic would be worse than none.
+IOP_OBJS = exports.o imports.o main.o frag.o sector.o
 
 IOP_INCS += -I../../include
 
@@ -37,6 +38,15 @@ all: check $(IOP_BIN)
 # Makefile.iopglobal only looks in this directory, so this one rule is
 # what makes the file reachable.
 obj/frag.o: ../../src/disc/frag.c
+	$(DIR_GUARD)
+	$(IOP_C_COMPILE) -c $< -o $@
+
+# sector.c, for the same reason. The 2340 layout puts a BCD address in
+# the first three bytes and the data at offset 12; a second copy of that
+# in main.c was the one place this module had arithmetic no test could
+# reach, and being wrong there is a game reading twelve bytes of header
+# as the start of its own structure.
+obj/sector.o: ../../src/disc/sector.c
 	$(DIR_GUARD)
 	$(IOP_C_COMPILE) -c $< -o $@
 

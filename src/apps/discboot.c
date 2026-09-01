@@ -298,9 +298,10 @@ static atlas_btconf_t s_btconf;
  * somebody else's machine, and a wrong guess is an IOP that boots
  * without a module it needed, after the last screen.
  *
- * fio rather than fileXio: this runs after atlas_device_shutdown(), and
- * rom0: is served by the IOP's own ROM driver, which is there from the
- * moment the IOP is alive and needs nothing of ours mounted.
+ * fio rather than fileXio: rom0: is served by the IOP's own ROM driver,
+ * which is there from the moment the IOP is alive and needs nothing of
+ * ours mounted - so this does not depend on the device stack that is
+ * about to be taken down a few lines later.
  *
  * @return 0 on success.
  */
@@ -502,35 +503,14 @@ atlas_err_t atlas_discboot_run(const atlas_discboot_t *ready)
      * resets the IOP itself, which would throw the module away; so the
      * reset happens now, the module is installed, and the game's ELF is
      * loaded afterwards with the reset already done.
-     */
-    SifInitRpc(0);
-
-    /*
-     * "rom0:UDNL rom0:EELOADCNF" is the reset that leaves the IOP
-     * without its stock cdvdman: UDNL is the ROM updater, and the second
-     * word names the module list it boots with - one that omits the
-     * drive modules. A plain SifIopReset("") would bring the real
-     * cdvdman back, and it would win the name: a module cannot register
-     * a library that is already registered, so ours would load and never
-     * be called.
      *
-     * SifIopReset is the current SDK entry point for this. The mode
-     * argument is 0; the encrypted-image variants in iopcontrol_special.h
-     * take an IOPRP buffer, which is a different thing from a module
-     * list and not what we have.
+     * It is a reboot with our own module list rather than a plain
+     * SifIopReset(""), because a plain reset brings the real cdvdman
+     * back and it wins the name.
      */
-    for (tries = 0; tries < 1000; tries++) {
-        if (SifIopReset("rom0:UDNL rom0:EELOADCNF", 0))
-            break;
-    }
-
-    if (tries >= 1000)
+    if (reboot_without_drive() != 0)
         return ATLAS_EFATAL;
 
-    while (!SifIopSync())
-        ;
-
-    SifInitRpc(0);
     SifLoadFileInit();
 
     sbv_patch_enable_lmb();
@@ -584,6 +564,14 @@ atlas_err_t atlas_discboot_run(const atlas_discboot_t *ready)
         ATLAS_LOG("DISC", "drive emulation refused to start");
         return ATLAS_EFAIL;
     }
+
+    /*
+     * Now, and not before: cdvdfsv imports cdvdman, so it could not
+     * load while the name was free. Ours holds it, so what cdvdfsv
+     * links to is ours, and a game whose EE code calls sceCdRead
+     * reaches the image through it.
+     */
+    restore_drive_modules();
 
     /*
      * The game's own executable, read through the module that has just

@@ -65,6 +65,7 @@ EE_SRC = \
 	src/disc/compat.c \
 	src/disc/compat_io.c \
 	src/disc/frag.c \
+	src/disc/btconf.c \
 	src/disc/sector.c \
 	src/disc/profile.c \
 	src/disc/profile_io.c \
@@ -120,7 +121,7 @@ EE_LDFLAGS += -L$(GSKIT)/lib -L$(PS2SDK)/ports/lib
 # the IOP and jumps. It must come before -lpatches: it calls the SBV
 # patch helpers, and the linker resolves left to right.
 EE_LIBS    += -lgskit -ldmakit -lelf-loader -lpatches -lfileXio -lpadx \
-              -lmc -lpoweroff
+              -lmc -lpoweroff -lioprpgen -liopreboot
 
 EE_CFLAGS  += -Wall -Wextra -Wno-unused-parameter
 

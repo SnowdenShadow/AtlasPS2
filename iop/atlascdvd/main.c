@@ -72,6 +72,7 @@
 #include <types.h>
 
 #include "atlas/frag.h"
+#include "atlas/sector.h"
 
 #include "atlascdvd.h"
 
@@ -236,66 +237,25 @@ static int image_read(u32 offset, u32 bytes, u8 *dst)
 /* ------------------------------------------------------------------ */
 /* Sector framing                                                      */
 /*                                                                     */
-/* The same rules as src/disc/sector.c, which carries the reasoning    */
-/* and the self-check. Repeated because this module cannot link EE     */
-/* code; the two are changed together.                                 */
+/* src/disc/sector.c, compiled by this toolchain - not a copy of it.   */
+/* The 2340 layout puts a BCD address in the first three bytes and the */
+/* data at offset 12, and every way of getting that wrong returns the  */
+/* right number of bytes: a game reads twelve bytes of header as the   */
+/* start of its own structure and nothing says so. One implementation, */
+/* with tests/test_sector.c over it, is the only version of that       */
+/* arithmetic anybody can check.                                       */
 /*                                                                     */
-/* 2352 is absent on purpose: sceCdRead()'s datapattern field has no   */
-/* value for it, so nothing can ask for it here.                       */
+/* The SCECdSecS* values the game passes are the same numbers as the   */
+/* ATLAS_SECTOR_* ones, and the check below is what keeps them so.     */
+/* 2352 is unreachable here: sceCdRead()'s datapattern field has no    */
+/* value for it, and SCECdSecS2352 is 0 - the CDDA numbering, which is */
+/* a different enum sharing the range.                                 */
 /* ------------------------------------------------------------------ */
 
-static u8 to_bcd(u32 v)
-{
-    return (u8)(((v / 10) % 10) * 16 + (v % 10));
-}
-
-static u32 sector_out_size(int mode)
-{
-    switch (mode) {
-    case SCECdSecS2048: return 2048;
-    case SCECdSecS2328: return 2328;
-    case SCECdSecS2340: return 2340;
-    default:            return 0;
-    }
-}
-
-static void sector_expand(int mode, u32 lba, const u8 *data, u8 *out)
-{
-    u32 total = lba + 150;      /* the two-second pre-gap */
-
-    switch (mode) {
-    case SCECdSecS2048:
-        memcpy(out, data, 2048);
-        return;
-
-    case SCECdSecS2328:
-        memcpy(out, data, 2048);
-        memset(out + 2048, 0, 2328 - 2048);
-        return;
-
-    case SCECdSecS2340:
-        out[0] = to_bcd(total / (75 * 60));
-        out[1] = to_bcd((total / 75) % 60);
-        out[2] = to_bcd(total % 75);
-        out[3] = 2;                     /* Mode 2 */
-
-        out[4] = 0;                     /* file    */
-        out[5] = 0;                     /* channel */
-        out[6] = 0x08;                  /* submode: data, form 1 */
-        out[7] = 0;
-        out[8]  = out[4];
-        out[9]  = out[5];
-        out[10] = out[6];
-        out[11] = out[7];
-
-        memcpy(out + 12, data, 2048);
-        memset(out + 12 + 2048, 0, 2340 - 12 - 2048);
-        return;
-
-    default:
-        return;
-    }
-}
+typedef char atlas_sector_modes_agree[
+    (SCECdSecS2048 == ATLAS_SECTOR_2048 &&
+     SCECdSecS2328 == ATLAS_SECTOR_2328 &&
+     SCECdSecS2340 == ATLAS_SECTOR_2340) ? 1 : -1];
 
 /* ------------------------------------------------------------------ */
 /* The worker                                                          */
@@ -349,7 +309,7 @@ static void worker(void *unused)
              * same code as src/disc/sector.c, which is checked on the
              * build machine.
              */
-            u32 out_size = sector_out_size(mode);
+            u32 out_size = atlas_sector_size(mode);
 
             if (out_size == 0) {
                 ok = 0;
@@ -363,8 +323,11 @@ static void worker(void *unused)
                         break;
                     }
 
-                    sector_expand(mode, lba + i, data,
-                                  out + i * out_size);
+                    /* form2 is 0: an image stores Form 1 sectors
+                     * and nothing here knows otherwise. See
+                     * include/atlas/sector.h. */
+                    atlas_sector_expand(mode, lba + i, 0, data,
+                                        out + i * out_size);
                 }
             }
         }

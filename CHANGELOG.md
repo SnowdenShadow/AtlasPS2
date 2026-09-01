@@ -65,12 +65,32 @@ pre-release milestones, not a stable interface.
   in the ELF - there is no filesystem left to load it from at the point
   it is installed.
 - **The untestable part is kept small.** The FAT walk and the extent
-  arithmetic live in `src/disc/frag.c` and the sector framing in
-  `src/disc/sector.c`, both with host self-checks over them; the module
-  calls into the same code rather than carrying a second copy. Two
-  implementations of the arithmetic that decides which sectors a game
-  reads, one of them untested, is how a game ends up reading somebody
-  else's data with nothing to show it did.
+  arithmetic live in `src/disc/frag.c`, the sector framing in
+  `src/disc/sector.c` and the IOP boot-list filter in
+  `src/disc/btconf.c`, all three with host self-checks over them. The
+  first two are compiled a second time by the IOP toolchain and linked
+  into the module, rather than transcribed into it: two implementations
+  of the arithmetic that decides which sectors a game reads, one of them
+  untested, is how a game ends up reading somebody else's data with
+  nothing to show it did. The 2340 layout in particular returns the
+  right number of bytes however wrong it is, and a game reads twelve
+  bytes of header as the start of its own structure.
+- **The real `cdvdman` is kept out of the boot, using the console's own
+  module list.** A module cannot register a library name that is already
+  registered, so the stock `cdvdman` booting means ours loads and is
+  never called. AtlasPS2 reads `rom0:IOPBTCONF`, removes the three lines
+  naming the drive modules, and reboots the IOP from an IOPRP image
+  built around the result. The list is read rather than written down
+  because it differs between console revisions - a list baked into the
+  ELF would be a guess about somebody else's machine, and a wrong guess
+  is an IOP booting without a module it needed, after the last screen
+  the user sees. A list this does not recognise is refused while there
+  is still something to refuse on.
+- **`cdvdfsv` is put back afterwards, not left out.** It is what the
+  EE's own `sceCdRead` calls arrive through, and it imports `cdvdman`,
+  so it cannot load while that name is free. It comes out of the boot
+  list with the rest and is loaded again from `rom0:` once the drive
+  emulation holds the name - at which point what it links to is ours.
 - **The module fails the mechacon calls rather than answering them.**
   The clock, the console ID, the NVM and the disc key are not things it
   stands in for. A fabricated clock timestamps every save the player

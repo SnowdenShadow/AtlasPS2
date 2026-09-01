@@ -124,9 +124,10 @@ gives a black screen.** That is recoverable — the console is one power
 cycle from the menu — but it is indistinguishable from a bad dump, and a
 user cannot tell which they have. So the module is written to keep the
 untestable part small: the FAT walk and the extent arithmetic live in
-`src/disc/frag.c` and the sector framing in `src/disc/sector.c`, both
-with host self-checks over them, and what remains in the IOP module is
-sequencing and hardware.
+`src/disc/frag.c`, the sector framing in `src/disc/sector.c` and the
+boot-list filter in `src/disc/btconf.c`, all three with host self-checks
+over them, and what remains in the IOP module is sequencing and
+hardware.
 
 Its scope today is deliberately one thing: **ISO images on a USB block
 device.** ZSO, HDD and SMB are each a change to that module's `bd_read()`
@@ -139,12 +140,30 @@ met. Every hardware row in [COMPATIBILITY.md](COMPATIBILITY.md) is
 
 ### 1. The module the game calls
 
-Replace `cdvdman` and `cdvdfsd`. Load them from EE RAM after
-`IOP reset`, before the game's own modules, with the real ones excluded.
-`discboot.c` does this with `SifIopReset("rom0:UDNL rom0:EELOADCNF", 0)`
-— a reset whose module list omits the drive modules, because a module
-cannot register a library name that is already registered, and the real
-`cdvdman` would win the name and ours would load and never be called.
+Replace `cdvdman`. Load it from EE RAM after the IOP reset, before the
+game's own modules, with the real one excluded — a module cannot
+register a library name that is already registered, so if the stock
+`cdvdman` boots, ours loads and is never called.
+
+Excluding it means changing the module list the IOP boots with, and
+that list lives in `rom0:IOPBTCONF`. `discboot.c` reads the console's
+own copy, `src/disc/btconf.c` removes the lines naming `CDVDMAN`,
+`CDVDFSV` and `CDVDSTM`, and the result is packed into an IOPRP image
+and handed to `SifIopRebootBuffer()`. The list is read rather than
+written down because it differs between console revisions: a list baked
+into this program would be a guess about somebody else's machine, and a
+wrong guess is an IOP booting without a module it needed, after the last
+screen.
+
+That filter is the one part of this handover a build machine can check,
+and `tests/test_btconf.c` checks it — including the near misses, where
+a revision's `CDVDMAN2` must survive a filter that removes `CDVDMAN`.
+
+`cdvdfsv` is what the EE's own `sceCdRead` calls arrive through, and it
+imports `cdvdman`, so it cannot load in the window where `cdvdman` is
+missing. It comes out of the boot list with the others and is loaded
+again from `rom0:` once our module holds the name — at which point what
+it links to is ours.
 
 The export table must match the real module **by ordinal, not by name**.
 Games bind to the numbers. A table with the right functions in the wrong
@@ -263,7 +282,8 @@ behaviour is close enough to be evidence.
 | `src/disc/image.c` | ISO and ZSO reading on the EE, with the block cache |
 | `src/disc/lz4.c` | ZSO block decompression |
 | `src/disc/frag.c` | The FAT walk and the extent list — host-checked |
-| `src/disc/sector.c` | 2048/2340/2352 framing — host-checked |
+| `src/disc/sector.c` | 2048/2340/2352 framing — host-checked, and linked into the IOP module rather than copied |
+| `src/disc/btconf.c` | Removing the drive modules from the IOP boot list — host-checked |
 | `src/disc/compat.c` | What a compatibility flag means |
 | `src/apps/discboot.c` | The EE half: identify, reset the IOP, install, hand over |
 | `iop/atlascdvd/main.c` | The IOP module the game calls |
