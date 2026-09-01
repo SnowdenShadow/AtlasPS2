@@ -140,14 +140,22 @@ alongside `__common` browsing rather than replacing it:
   `HIOCGETPARTSTART`/`HIOCGETSIZE` recovers the partition's start
   sector and size; the game data itself starts `0x2000` (512-byte ATA)
   sectors into the partition — a fixed 4 MB header every HDL installer
-  writes — confirmed from `hdl-dump`'s source, not guessed. A
-  partition split across several sub-partitions (`stat.private_0 > 0`,
-  a multi-slice install for a very large game) is listed but marked
-  unstartable, since the boot side only knows how to read one
-  contiguous run. **Never run on a console** — if a game does not show
-  up, or shows with "format not recognised", that is the first thing
-  to report; it means one of the two ioctl2 assumptions above needs
-  correcting.
+  writes — confirmed from `hdl-dump`'s source, not guessed. Enumerating
+  `hdd0:` returns a dirent for every partition in the chain, mains and
+  subs alike, and a sub's dirent carries its *main's* name rather than
+  its own (`hddDread()`/`fioGetStatFiller()` in ps2sdk's
+  `iop/hdd/apa/src/hdd_fio.c`) — so a game split into a main plus two
+  subs would surface as three identical-looking rows if subs were not
+  filtered out. `stat.attr & APA_FLAG_SUB` is what tells a sub's dirent
+  from its main's, and is checked first, before anything else runs.
+  What's left after that filter is one row per real install; a main
+  with subs (`stat.private_0 > 0` on that surviving dirent, now
+  unambiguous) is a multi-slice install for a very large game, listed
+  but marked unstartable, since the boot side only knows how to read
+  one contiguous run. **Never run on a console** — if a game does not
+  show up, or shows with "format not recognised", that is the first
+  thing to report; it means one of the two ioctl2 assumptions above
+  needs correcting.
 - **Booting.** Reuses the exact same `atlascdvd` IOP module that boots
   a USB image, with one more branch in `bd_read()`: instead of reading
   through `bdm`, it calls `sceAtaDmaTransfer()` directly — the same

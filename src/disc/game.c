@@ -212,6 +212,20 @@ static void scan_hdl(void)
         if (ent.name[0] == '\0' || ent.stat.mode != APA_TYPE_HDL)
             continue;
 
+        /*
+         * hdd_fio.c's dread() walks every partition on the chain,
+         * mains and subs alike, and for a sub it reports the PARENT's
+         * name in place of its own (fioGetStatFiller() / hddDread(),
+         * ps2sdk iop/hdd/apa/src/hdd_fio.c) - so a game split into a
+         * main plus two subs surfaces as three identical-looking
+         * dirents here, not one. APA_FLAG_SUB in stat.attr is set only
+         * on a sub's own dirent and is the one field that tells the
+         * two apart; skip it; its bytes are already reachable, and
+         * counted, through the main.
+         */
+        if (ent.stat.attr & APA_FLAG_SUB)
+            continue;
+
         if (s_count >= ATLAS_GAME_MAX)
             break;
 
@@ -224,12 +238,13 @@ static void scan_hdl(void)
         g->device = ATLAS_DEV_HDD;
 
         /*
-         * private_0 is the subpartition count on a main partition's own
-         * dirent. A multi-slice HDL install (very large or dual-layer
-         * games split across several partitions) is a layout the boot
-         * side's single contiguous run does not describe - listed so
-         * the user sees it is there, but marked unstartable rather than
-         * read wrong.
+         * private_0 is only ever a subpartition count here, now that
+         * subs themselves are filtered above - a main with subs is a
+         * multi-slice HDL install (very large or dual-layer games
+         * split across several partitions), a layout the boot side's
+         * single contiguous run does not describe. Listed so the user
+         * sees it is there, but marked unstartable rather than read
+         * wrong.
          */
         if (ent.stat.private_0 > 0) {
             g->is_hdl = 2;
