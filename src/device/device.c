@@ -228,6 +228,15 @@ static int poll_mass(atlas_device_t *d)
  */
 static int s_hdd_mounted;
 
+/*
+ * Set whenever the raw ATA drive is present and APA-formatted, regardless
+ * of whether it carries a "__common" partition. A drive written entirely
+ * by HDLoader-style tools (see scan_hdl() in game.c) never has one, and
+ * that must not read as the HDD being absent: game.c needs this fact
+ * on its own, independent of whether __common mounted.
+ */
+static int s_hdd_raw_ready;
+
 /**
  * Probe the internal HDD and mount its "__common" partition read-only.
  *
@@ -246,6 +255,7 @@ static int poll_hdd(atlas_device_t *d)
 
     if (!s_have_hdd) {
         d->state = ATLAS_DEV_ABSENT;
+        s_hdd_raw_ready = 0;
         return 1;
     }
 
@@ -259,6 +269,7 @@ static int poll_hdd(atlas_device_t *d)
             d->state = ATLAS_DEV_ABSENT;
             d->detail = NULL;
             d->free_kb = -1;
+            s_hdd_raw_ready = 0;
         }
         return 1;
     }
@@ -267,6 +278,7 @@ static int poll_hdd(atlas_device_t *d)
         d->state = ATLAS_DEV_ABSENT;
         d->detail = NULL;
         d->free_kb = -1;
+        s_hdd_raw_ready = 0;
         return 1;
     }
 
@@ -274,8 +286,13 @@ static int poll_hdd(atlas_device_t *d)
         d->state = ATLAS_DEV_UNFORMATTED;
         d->detail = "HDD is not initialised";
         d->free_kb = -1;
+        s_hdd_raw_ready = 0;
         return 1;
     }
+
+    /* Present and APA-formatted - enough for scan_hdl() to enumerate HDL
+     * game partitions, whether or not __common exists below. */
+    s_hdd_raw_ready = 1;
 
     n = hddGetFilesystemList(fs, 16);
     if (n < 0) {
@@ -343,6 +360,7 @@ atlas_err_t atlas_device_init(int have_memcard, int have_usb, int have_hdd)
     s_cursor       = 0;
     s_mass_backoff = 0;
     s_hdd_mounted  = 0;
+    s_hdd_raw_ready = 0;
     memset(s_recheck, 0, sizeof(s_recheck));
     memset(s_mc_probe, 0, sizeof(s_mc_probe));
 
@@ -445,6 +463,11 @@ int atlas_device_is_ready(atlas_device_id_t id)
     const atlas_device_t *d = atlas_device_get(id);
 
     return d && d->state == ATLAS_DEV_READY;
+}
+
+int atlas_device_hdd_present(void)
+{
+    return s_hdd_raw_ready;
 }
 
 int atlas_device_ready_count(void)

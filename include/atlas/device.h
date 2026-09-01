@@ -106,6 +106,19 @@ const atlas_device_t *atlas_device_get(atlas_device_id_t id);
 /** Convenience: is this device mounted and usable right now? */
 int atlas_device_is_ready(atlas_device_id_t id);
 
+/**
+ * Is the raw internal HDD present and APA-formatted, independent of
+ * whether it carries a "__common" partition?
+ *
+ * atlas_device_is_ready(ATLAS_DEV_HDD) answers a narrower question -
+ * whether __common specifically mounted - and is ATLAS_DEV_ERROR on a
+ * drive written entirely by HDLoader-style tools, which never create
+ * one. Game listing needs this broader fact instead: HDL game
+ * partitions are read by enumerating "hdd0:" directly, which needs the
+ * drive present and partitioned but nothing PFS-related at all.
+ */
+int atlas_device_hdd_present(void);
+
 /** Number of devices currently ATLAS_DEV_READY. */
 int atlas_device_ready_count(void);
 

@@ -132,8 +132,10 @@ Batch and similar tools) has one APA partition per game, type
 filesystem — so listing these needed a second code path, added
 alongside `__common` browsing rather than replacing it:
 
-- **Detection and listing.** `hdd0:` is enumerated directly
-  (`fileXioDopen`/`fileXioDread`), filtering on `stat.mode ==
+- **Detection and listing.** Independent of whether `__common` mounts -
+  a drive written entirely by HDLoader-style tools never has one, and
+  that alone must not hide every game on it. `hdd0:` is enumerated
+  directly (`fileXioDopen`/`fileXioDread`), filtering on `stat.mode ==
   APA_TYPE_HDL`. For each match, `fileXioIoctl2()` with
   `HIOCGETPARTSTART`/`HIOCGETSIZE` recovers the partition's start
   sector and size; the game data itself starts `0x2000` (512-byte ATA)

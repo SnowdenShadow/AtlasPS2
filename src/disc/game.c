@@ -273,7 +273,13 @@ int atlas_game_scan(void)
 
     s_count = 0;
 
-    if (atlas_device_is_ready(ATLAS_DEV_HDD))
+    /*
+     * Not atlas_device_is_ready(ATLAS_DEV_HDD): that tracks whether
+     * "__common" mounted, which a drive written purely by HDLoader-style
+     * tools never has. HDL partitions are read by enumerating "hdd0:"
+     * directly and need only the raw drive present and formatted.
+     */
+    if (atlas_device_hdd_present())
         scan_hdl();
 
     if (atlas_device_is_ready(ATLAS_DEV_MASS)) {
