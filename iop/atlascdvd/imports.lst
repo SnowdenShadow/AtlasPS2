@@ -1,0 +1,56 @@
+/*
+ * AtlasPS2 - atlascdvd imports.lst
+ *
+ * What this module calls out to.
+ *
+ * Kept deliberately short. Every import is a library that must be
+ * resident before this module loads and must survive the game loading
+ * its own: a module that imports something the game later replaces
+ * calls into whatever took its place. loadcore, the thread manager,
+ * semaphores, interrupt control and the block device manager are the
+ * ones that are always there.
+ */
+
+#include "irx_imports.h"
+
+loadcore_IMPORTS_start
+I_RegisterLibraryEntries
+I_ReleaseLibraryEntries
+loadcore_IMPORTS_end
+
+intrman_IMPORTS_start
+I_CpuSuspendIntr
+I_CpuResumeIntr
+intrman_IMPORTS_end
+
+thbase_IMPORTS_start
+I_CreateThread
+I_StartThread
+I_DelayThread
+I_GetSystemTime
+thbase_IMPORTS_end
+
+thsemap_IMPORTS_start
+I_CreateSema
+I_DeleteSema
+I_SignalSema
+I_iSignalSema
+I_WaitSema
+thsemap_IMPORTS_end
+
+thevent_IMPORTS_start
+I_CreateEventFlag
+I_SetEventFlag
+I_iSetEventFlag
+I_ClearEventFlag
+I_WaitEventFlag
+thevent_IMPORTS_end
+
+sysclib_IMPORTS_start
+I_memcpy
+I_memset
+sysclib_IMPORTS_end
+
+bdm_IMPORTS_start
+I_bdm_get_bd
+bdm_IMPORTS_end

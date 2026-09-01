@@ -2,6 +2,9 @@
  * AtlasPS2 - power.c
  * Shutdown, reboot and handing the console back.
  */
+#include <stdio.h>
+#include <string.h>
+
 #include <kernel.h>
 #include <libpwroff.h>
 #include <sifrpc.h>
@@ -9,11 +12,17 @@
 
 #include "atlas/power.h"
 #include "atlas/boot.h"
+#include "atlas/file.h"
 #include "atlas/video.h"
 #include "atlas/input.h"
 #include "atlas/log.h"
 
 static int s_poweroff_ready;
+
+/* Empty means "no usable path", which is also the state before main()
+ * has said anything - a launcher that passes no argv[0] then leaves the
+ * restart entry hidden rather than offering a guess. */
+static char s_self_path[128];
 
 /**
  * Release everything AtlasPS2 owns.
@@ -26,6 +35,50 @@ static void teardown(void)
 {
     atlas_input_shutdown();
     atlas_video_shutdown();
+}
+
+void atlas_power_set_self_path(const char *argv0)
+{
+    const char *colon;
+
+    s_self_path[0] = '\0';
+
+    if (!argv0 || !argv0[0])
+        return;
+
+    /*
+     * A device prefix is the whole test. LoadExecPS2() has no working
+     * directory to resolve a bare name against, so "BOOT.ELF" would
+     * fail - and it would fail after SifIopReset(), with the GS already
+     * released and nothing left that can draw an error. Requiring the
+     * colon turns that into a restart entry that simply never appears.
+     */
+    colon = strchr(argv0, ':');
+    if (!colon || colon == argv0)
+        return;
+
+    if ((int)strlen(argv0) >= (int)sizeof(s_self_path)) {
+        ATLAS_LOG("POWER", "argv[0] too long to keep: %s", argv0);
+        return;
+    }
+
+    /*
+     * Checked once, here, rather than at the moment of restarting. By
+     * then the check would be pointless: the fallback has to run
+     * anyway, and the user has already committed to leaving.
+     */
+    if (!atlas_file_exists(argv0)) {
+        ATLAS_LOG("POWER", "argv[0] does not resolve: %s", argv0);
+        return;
+    }
+
+    snprintf(s_self_path, sizeof(s_self_path), "%s", argv0);
+    ATLAS_LOG("POWER", "self path: %s", s_self_path);
+}
+
+const char *atlas_power_self_path(void)
+{
+    return s_self_path[0] ? s_self_path : NULL;
 }
 
 int atlas_power_can_shutdown(void)

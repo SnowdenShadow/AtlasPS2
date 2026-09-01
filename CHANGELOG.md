@@ -12,6 +12,52 @@ pre-release milestones, not a stable interface.
 
 ### Added
 
+- **Disc images are read and identified.** ISO and ZSO are presented to
+  the rest of the program as a flat array of 2048-byte sectors;
+  `SYSTEM.CNF` is parsed off that, giving the title, the game ID and the
+  region. The format is decided by the file's magic and never by its
+  extension, because a renamed file is an ordinary thing to find on
+  someone's drive and the ISO path would read a ZSO's compressed bytes
+  as a disc with no volume descriptor.
+- **ZSO, and not CSO or CHD.** LZ4 decompression is a byte-copy loop
+  with no entropy decoding and no window state, which is what a 37 MHz
+  IOP can do while keeping a game's audio streaming fed. CSO is the same
+  idea with DEFLATE, and a format that works until a cutscene needs
+  audio is worse than one that is absent.
+- **The LZ4 decoder is checked against the reference compressor**, not
+  against itself. `tools/genlz4vec.py` emits the committed vectors; a
+  decoder checked only against its own encoder can be uniformly wrong
+  and still agree with itself, and this one runs over every sector a
+  compressed image is read through.
+- **The same disc, compared as an ISO and as a ZSO, sector by sector.**
+  That pairing found two real bugs in the ZSO reader that no fixed
+  expected value could have: a wrong index entry returns real data,
+  correctly decompressed, from the wrong place.
+- **A game ID that does not fit is refused, not truncated.** A truncated
+  ID silently matches another game's compatibility entry, and nothing on
+  screen would say so.
+- **Per-game settings, in a file the user edits.**
+  `ATLAS/CONFIG/COMPAT.INI` carries one section per game: the workaround
+  flags a title needs and the video mode to hand it. AtlasPS2 ships no
+  entries of its own - a table baked into the ELF is a compatibility
+  list that can only be corrected by rebuilding, for a body of knowledge
+  players collect and we do not.
+- **Booleans are read the way people write them**, and matched whole.
+  `1`, `yes`, `true`, `on` and their negatives, in any case; `perhaps`
+  is not a boolean and `purple` is not a video mode, and both are
+  logged and skipped rather than taken for their first letter.
+- **One bad line does not cost the file.** A section header that is not
+  a game ID is rejected and logged, an unknown key is skipped, and every
+  good entry around them still loads: a list shared between launchers
+  carries keys AtlasPS2 does not implement.
+- **An unknown region stays AUTO rather than guessing NTSC.** A PAL
+  title told it is NTSC runs a fifth too fast with the bottom of the
+  picture cut off, which reads as a bad dump rather than as a setting
+  the user can change.
+- **`docs/DISC.md`** - what is implemented, and the exact contract the
+  IOP-side drive emulation has to meet. The `cdvdman` replacement is not
+  in this repository: it cannot be checked on a build machine, and a
+  wrong one gives a black screen the user cannot tell from a bad dump.
 - **Favorites and a recently-used list.** Square marks the highlighted
   application; the applications screen then grows a "Recently used" and
   a "Favorites" group above the full list. Both are stored in
@@ -32,6 +78,69 @@ pre-release milestones, not a stable interface.
   write at all. The list is saved before the launch, not after: after a
   successful launch this program has been replaced and there is no
   "after" to write anything in.
+- **The settings screen.** Eleven sections in one list: general,
+  display, devices, applications, boot, theme, language, system
+  information, advanced, recovery and about. Most rows are doors rather
+  than controls - video, theme, devices and applications each already
+  have a screen that owns their settings, and a second copy of the
+  video clamps is one more place for them to disagree. The one that
+  disagrees leaves a television showing nothing.
+- **Saving touches only the keys this screen edits.** It reads
+  `ATLAS.INI`, replaces six values and writes it back, so setting a
+  video mode from the screen this one opens is not undone by pressing
+  Save on the way out. The screen deliberately holds those six fields
+  rather than a whole configuration struct, because holding the struct
+  is what would make the stale write possible in the first place.
+- **The language applies the moment it is chosen, and reverts if you
+  leave without saving.** Otherwise the warning that says "leaving now
+  puts back the previous settings" would be false for the one setting
+  the user can see with their own eyes.
+- **The auto-launch countdown is escapable by any button**, and the
+  path is checked before the timer starts rather than after it runs
+  out. A stored default application that no longer resolves - a USB
+  stick left unplugged - now costs nothing instead of several seconds
+  of watching a counter run down to a failure. It never runs on a
+  recovery boot: the stored default is a plausible candidate for what
+  is wrong, and the escape hatch must not escape into the same trap.
+- **The startup setting now decides the first screen.** It was parsed,
+  editable and ignored; `startup = apps` opens the application list.
+- **System information reports what can actually be known.** Console
+  region from the GS ROM, video mode and resolution, per-device free
+  space, and the state of all five module groups. There is no PS2SDK
+  version macro to print, so it prints the compiler and the build date
+  instead of inventing one, and there is no network stack in this
+  build, so the IP row says exactly that rather than showing a
+  fabricated address. The console's ROM version string is deliberately
+  absent: it is an identifier, and nothing here needs it.
+- **"Restart AtlasPS2" appears only when we know where we came from.**
+  `argv[0]` is kept at startup and checked once the filesystems are up;
+  a launcher that passes nothing, or a bare `BOOT.ELF` with no device
+  prefix, leaves the entry hidden. The alternative is a menu row that
+  fails after the IOP has been reset and the GS released, at the one
+  moment in the program where nothing is left that can draw an error.
+- **There is no "Restart Console", because the PS2 has no software cold
+  reset.** What the SDK offers is `ExecOSD()`, which is the row above it
+  already described honestly as returning to the browser. A second row
+  calling the same syscall under a name that promises a power cycle
+  would be the same action with a false label.
+- **A first-boot wizard: three questions on one screen.** Language,
+  display and whether to scan for applications, then the menu. It runs
+  only when no configuration file was found at all - a file that was
+  damaged and recovered from its `.BAK` is a repaired install, not a
+  new one, and asking that user to set their language up again would
+  say otherwise. A failed write does not stop the console reaching its
+  menu; it says so and continues, and asks again next boot, which is
+  correct because nothing was recorded.
+- **The wizard shows the display setting without offering to change
+  it.** It is the one setting capable of making the wizard itself
+  invisible, and unlike the video screen this has no confirmation
+  countdown to escape with. Holding R1 at boot is the escape, and the
+  row says so.
+- **Clearing favorites now reaches the card.** `atlas_fav_reset()`
+  clears the dirty flag by design - it is what a load starts from - so
+  a reset followed by a save wrote nothing and the favorites came back
+  at the next boot. Clearing on the user's behalf is a separate call
+  that marks them changed.
 - **Milestone 9 - the file manager.** Browse every mounted device from
   one tree, launch an ELF, copy, move, rename, create a folder, delete
   a file, delete an empty folder. File sizes are shown, and the

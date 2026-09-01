@@ -206,6 +206,19 @@ extern "C" {
     X(SYS_ASPECT,      "sys.aspect",        "Aspect",         "Format d'image") \
     X(SYS_AVAILABLE,   "sys.available",     "available",      "disponible")  \
     X(SYS_UNAVAILABLE, "sys.unavailable",   "unavailable",    "indisponible")\
+    X(SYS_H_SYSTEM,    "sys.h.system",      "System",         "Syst\xc3\xa8me") \
+    X(SYS_H_STORAGE,   "sys.h.storage",     "Storage",        "Stockage")    \
+    X(SYS_H_NETWORK,   "sys.h.network",     "Network",        "R\xc3\xa9seau") \
+    X(SYS_H_MODULES,   "sys.h.modules",     "Modules",        "Modules")     \
+    X(SYS_REGION,      "sys.region",        "Console region",                \
+                                            "R\xc3\xa9gion console")         \
+    X(SYS_TOOLCHAIN,   "sys.toolchain",     "Built with",     "Compil\xc3\xa9 avec") \
+    X(SYS_BUILD_DATE,  "sys.build_date",    "Build date",                    \
+                                            "Date de compilation")           \
+    X(SYS_IP,          "sys.ip",            "IP address",     "Adresse IP")  \
+    X(SYS_NO_NET,      "sys.no_net",                                         \
+        "no network support in this build",                                  \
+        "pas de r\xc3\xa9seau dans cette version")                           \
     /* Power. */                                                             \
     X(POWER_BROWSER,   "power.browser",     "Return to PS2 Browser",         \
                                             "Retour au navigateur PS2")      \
@@ -215,6 +228,11 @@ extern "C" {
     X(POWER_OFF,       "power.off",         "Power Off",      "\xc3\x89teindre") \
     X(POWER_D_OFF,     "power.d.off",       "Shut the console down.",        \
                                             "\xc3\x89teindre la console.")   \
+    X(POWER_RESTART,   "power.restart",     "Restart AtlasPS2",              \
+                                            "Red\xc3\xa9marrer AtlasPS2")    \
+    X(POWER_D_RESTART, "power.d.restart",                                    \
+        "Load AtlasPS2 again from the file it was started from.",            \
+        "Recharger AtlasPS2 depuis le fichier qui l'a d\xc3\xa9marr\xc3\xa9.") \
     /* Placeholder screen. */                                                \
     X(TODO_TITLE,      "todo.title",        "Coming soon",    "\xc3\x80 venir") \
     X(TODO_BODY,       "todo.body",         "Not implemented yet in this build.", \
@@ -222,6 +240,45 @@ extern "C" {
     /* Settings values, shown wherever a language is chosen. */              \
     X(LANG_EN,         "lang.en",           "English",        "Anglais")     \
     X(LANG_FR,         "lang.fr",           "French",         "Fran\xc3\xa7""ais") \
+    /* ------------------------------------------------------------------ */\
+    /* First-boot wizard.                                                  */\
+    /*                                                                     */\
+    /* Three questions on one screen, not three screens. Someone seeing    */\
+    /* AtlasPS2 for the first time should reach the menu in a few presses; */\
+    /* everything asked here can also be changed later in Settings, so     */\
+    /* nothing is lost by keeping it short.                                */\
+    /* ------------------------------------------------------------------ */\
+    X(WIZ_TITLE,       "wiz.title",         "Welcome to AtlasPS2",           \
+                                            "Bienvenue dans AtlasPS2")       \
+    X(WIZ_INTRO,       "wiz.intro",                                          \
+        "A few questions, once. Everything here can be changed later.",      \
+        "Quelques questions, une seule fois. Tout est modifiable ensuite.")   \
+    X(WIZ_LANG,        "wiz.lang",          "Language",       "Langue")      \
+    X(WIZ_DISPLAY,     "wiz.display",       "Display",        "Affichage")   \
+    X(WIZ_D_DISPLAY,   "wiz.d.display",                                      \
+        "Automatic follows the console's own region. Change it in Settings " \
+        "if the picture is wrong.",                                          \
+        "Automatique suit la r\xc3\xa9gion de la console. \xc3\x80 changer "  \
+        "dans les R\xc3\xa9glages si l'image est incorrecte.")                \
+    X(WIZ_AUTO,        "wiz.auto",          "Automatic",      "Automatique") \
+    X(WIZ_SCAN,        "wiz.scan",          "Scan applications",             \
+                                            "Rechercher les applications")   \
+    X(WIZ_D_SCAN,      "wiz.d.scan",                                         \
+        "Look for homebrew on the memory cards and USB now.",                \
+        "Chercher maintenant les homebrews sur les cartes et l'USB.")         \
+    X(WIZ_START,       "wiz.start",         "Start AtlasPS2",                \
+                                            "D\xc3\xa9marrer AtlasPS2")      \
+    X(WIZ_YES,         "wiz.yes",           "Yes",            "Oui")         \
+    X(WIZ_NO,          "wiz.no",            "No",             "Non")         \
+    X(WIZ_SCANNING,    "wiz.scanning",      "Scanning...",                   \
+                                            "Recherche en cours...")         \
+    X(WIZ_FOUND,       "wiz.found",         "%d application(s) found",       \
+                                            "%d application(s) trouv\xc3\xa9""e(s)") \
+    X(WIZ_SAVE_FAIL,   "wiz.save_fail",                                      \
+        "Settings could not be saved. AtlasPS2 still starts, and will ask "  \
+        "again next time.",                                                  \
+        "Impossible d'enregistrer les r\xc3\xa9glages. AtlasPS2 d\xc3\xa9marre " \
+        "quand m\xc3\xaame et redemandera au prochain d\xc3\xa9marrage.")     \
     /* ------------------------------------------------------------------ */\
     /* Installer.                                                          */\
     /*                                                                     */\
@@ -546,7 +603,151 @@ extern "C" {
         "never leaves the console unusable.",                                \
         "Le th\xc3\xa8me int\xc3\xa9gr\xc3\xa9 ne peut pas \xc3\xaatre "       \
         "supprim\xc3\xa9 : un fichier de th\xc3\xa8me manquant ne rend "      \
-        "jamais la console inutilisable.")
+        "jamais la console inutilisable.")                                   \
+    /* ------------------------------------------------------------------ */\
+    /* Settings.                                                           */\
+    /*                                                                     */\
+    /* The section headings come first and are separate keys rather than   */\
+    /* reuses of the Home labels: a heading and a menu entry that open the */\
+    /* same screen still read differently, and a translator needs to be    */\
+    /* able to make them.                                                  */\
+    /* ------------------------------------------------------------------ */\
+    X(SET_H_GENERAL,   "set.h.general",     "General",        "G\xc3\xa9n\xc3\xa9ral") \
+    X(SET_H_DISPLAY,   "set.h.display",     "Display",        "Affichage")   \
+    X(SET_H_DEVICES,   "set.h.devices",     "Devices",                       \
+                                            "P\xc3\xa9riph\xc3\xa9riques")   \
+    X(SET_H_APPS,      "set.h.apps",        "Applications",   "Applications")\
+    X(SET_H_BOOT,      "set.h.boot",        "Boot",           "D\xc3\xa9marrage") \
+    X(SET_H_LANG,      "set.h.lang",        "Language",       "Langue")      \
+    X(SET_H_SYSTEM,    "set.h.system",      "System information",            \
+                                            "Informations syst\xc3\xa8me")   \
+    X(SET_H_ADVANCED,  "set.h.advanced",    "Advanced",       "Avanc\xc3\xa9")\
+    X(SET_H_RECOVERY,  "set.h.recovery",    "Recovery",                      \
+                                            "R\xc3\xa9""cup\xc3\xa9ration")   \
+    X(SET_H_ABOUT,     "set.h.about",       "About",          "\xc3\x80 propos") \
+    /* Values shared by the on/off rows. */                                  \
+    X(SET_ON,          "set.on",            "On",             "Activ\xc3\xa9")\
+    X(SET_OFF,         "set.off",           "Off",            "D\xc3\xa9sactiv\xc3\xa9") \
+    X(SET_NONE,        "set.none",          "none",           "aucune")      \
+    /* General. */                                                           \
+    X(SET_LANG,        "set.lang",          "Language",       "Langue")      \
+    X(SET_D_LANG,      "set.d.lang",                                         \
+        "Applied at once. A lang/ file on a device overrides the built-in "  \
+        "text.",                                                             \
+        "Appliqu\xc3\xa9""e imm\xc3\xa9""diatement. Un fichier lang/ sur un " \
+        "p\xc3\xa9riph\xc3\xa9rique remplace le texte int\xc3\xa9gr\xc3\xa9.") \
+    X(SET_STARTUP,     "set.startup",       "Start on",       "\xc3\x89""cran de d\xc3\xa9part") \
+    X(SET_D_STARTUP,   "set.d.startup",                                      \
+        "Which screen AtlasPS2 opens on.",                                   \
+        "L'\xc3\xa9""cran ouvert au d\xc3\xa9marrage d'AtlasPS2.")            \
+    X(SET_STARTUP_HOME,"set.startup.home",  "Home",           "Accueil")     \
+    X(SET_ANIM,        "set.anim",          "Animations",     "Animations")  \
+    X(SET_D_ANIM,      "set.d.anim",                                         \
+        "Cosmetic only. Nothing AtlasPS2 needs to work depends on it.",      \
+        "Purement d\xc3\xa9""coratif. Rien d'essentiel n'en d\xc3\xa9pend.")  \
+    X(SET_SOUNDS,      "set.sounds",        "Sounds",         "Sons")        \
+    X(SET_D_SOUNDS,    "set.d.sounds",                                       \
+        "Kept in the settings file; no sounds are played by this build.",    \
+        "Conserv\xc3\xa9 dans le fichier ; cette version ne joue aucun son.") \
+    /* Display and theme. */                                                 \
+    X(SET_VIDEO,       "set.video",         "Display settings",              \
+                                            "R\xc3\xa9glages d'affichage")   \
+    X(SET_D_VIDEO,     "set.d.video",                                        \
+        "Mode, aspect, position and margins. Changes revert on their own "   \
+        "unless confirmed.",                                                 \
+        "Mode, format, position et marges. Tout changement revient seul "    \
+        "s'il n'est pas confirm\xc3\xa9.")                                   \
+    X(SET_D_THEME,     "set.d.theme",                                        \
+        "Colours, previewed live. The built-in theme is always available.",  \
+        "Couleurs, avec aper\xc3\xa7u imm\xc3\xa9""diat. Le th\xc3\xa8me "    \
+        "int\xc3\xa9gr\xc3\xa9 reste toujours disponible.")                   \
+    /* Devices. */                                                           \
+    X(SET_DEVICES,     "set.devices",       "Storage devices",               \
+                                            "P\xc3\xa9riph\xc3\xa9riques de stockage") \
+    X(SET_D_DEVICES,   "set.d.devices",                                      \
+        "What each slot holds and, when it is unusable, why.",               \
+        "Ce que contient chaque emplacement et, s'il est inutilisable, "     \
+        "pourquoi.")                                                         \
+    X(SET_USB_RETRY,   "set.usb_retry",     "Retry USB detection",           \
+                                            "Relancer la d\xc3\xa9tection USB") \
+    X(SET_D_USB_RETRY, "set.d.usb_retry",                                    \
+        "Load the USB modules again after plugging a drive in, without "     \
+        "restarting the console.",                                           \
+        "Recharger les modules USB apr\xc3\xa8s avoir branch\xc3\xa9 une "    \
+        "cl\xc3\xa9, sans red\xc3\xa9marrer la console.")                     \
+    X(SET_USB_OK,      "set.usb.ok",        "USB modules loaded.",           \
+                                            "Modules USB charg\xc3\xa9s.")   \
+    X(SET_USB_FAIL,    "set.usb.fail",      "USB modules could not be loaded.", \
+                                            "Impossible de charger les modules USB.") \
+    /* Applications. */                                                      \
+    X(SET_APPS,        "set.apps",          "Application list",              \
+                                            "Liste des applications")        \
+    X(SET_D_APPS,      "set.d.apps",                                         \
+        "Rescan the devices and launch what was found.",                     \
+        "Re-analyser les p\xc3\xa9riph\xc3\xa9riques et lancer ce qui est trouv\xc3\xa9.") \
+    X(SET_CLEAR,       "set.clear",         "Clear favorites and history",   \
+                                            "Effacer favoris et historique") \
+    X(SET_D_CLEAR,     "set.d.clear",                                        \
+        "Empties both lists. No application file is deleted.",               \
+        "Vide les deux listes. Aucun fichier d'application n'est supprim\xc3\xa9.") \
+    X(SET_CLEARED,     "set.cleared",       "Favorites and history cleared.", \
+                                            "Favoris et historique effac\xc3\xa9s.") \
+    /* Boot. */                                                              \
+    X(SET_DEFAULT_APP, "set.default_app",   "Default application",           \
+                                            "Application par d\xc3\xa9""faut") \
+    X(SET_D_DEFAULT_APP, "set.d.default_app",                                \
+        "Launched on its own after the delay below. Left and Right pick "    \
+        "from the applications found.",                                      \
+        "Lanc\xc3\xa9""e seule apr\xc3\xa8s le d\xc3\xa9lai ci-dessous. "     \
+        "Gauche et Droite choisissent parmi les applications trouv\xc3\xa9""es.") \
+    X(SET_TIMEOUT,     "set.timeout",       "Launch delay",   "D\xc3\xa9lai avant lancement") \
+    X(SET_D_TIMEOUT,   "set.d.timeout",                                      \
+        "Seconds to wait before launching it. Zero never launches on its "   \
+        "own.",                                                              \
+        "Secondes d'attente avant le lancement. Z\xc3\xa9ro ne lance jamais " \
+        "tout seul.")                                                        \
+    X(SET_TIMEOUT_OFF, "set.timeout.off",   "never",          "jamais")      \
+    /* System information and advanced. */                                   \
+    X(SET_SYSINFO,     "set.sysinfo",       "System information",            \
+                                            "Informations syst\xc3\xa8me")   \
+    X(SET_D_SYSINFO,   "set.d.sysinfo",                                      \
+        "Version, video mode, devices and which modules came up.",           \
+        "Version, mode vid\xc3\xa9o, p\xc3\xa9riph\xc3\xa9riques et modules charg\xc3\xa9s.") \
+    X(SET_CFG_FILE,    "set.cfg_file",      "Settings file",  "Fichier de r\xc3\xa9glages") \
+    X(SET_CFG_NONE,    "set.cfg_none",      "not saved yet",  "pas encore enregistr\xc3\xa9") \
+    X(SET_RESET,       "set.reset",         "Reset all settings",            \
+                                            "R\xc3\xa9initialiser les r\xc3\xa9glages") \
+    X(SET_D_RESET,     "set.d.reset",                                        \
+        "Writes the defaults. The previous file is kept as ATLAS.INI.BAK.",  \
+        "\xc3\x89""crit les valeurs par d\xc3\xa9""faut. L'ancien fichier "   \
+        "est conserv\xc3\xa9 sous ATLAS.INI.BAK.")                           \
+    X(SET_RESET_DONE,  "set.reset.done",    "Settings reset to defaults.",   \
+                                            "R\xc3\xa9glages r\xc3\xa9initialis\xc3\xa9s.") \
+    /* Recovery. */                                                          \
+    X(SET_RECOVERY,    "set.recovery",      "Open recovery tools",           \
+                                            "Ouvrir les outils de r\xc3\xa9""cup\xc3\xa9ration") \
+    X(SET_D_RECOVERY,  "set.d.recovery",                                     \
+        "Hold L1+R1 while the console starts for the real recovery mode, "   \
+        "which reads no settings at all.",                                   \
+        "Maintenez L1+R1 au d\xc3\xa9marrage pour le vrai mode "             \
+        "r\xc3\xa9""cup\xc3\xa9ration, qui ne lit aucun r\xc3\xa9glage.")      \
+    /* About. */                                                             \
+    X(SET_ABOUT_LICENSE, "set.about.license", "License",      "Licence")     \
+    X(SET_ABOUT_NOTE,  "set.about.note",                                     \
+        "Free software. Contains no Sony code, fonts or graphics.",          \
+        "Logiciel libre. Ne contient aucun code, police ou graphisme Sony.") \
+    /* Saving. */                                                            \
+    X(SET_SAVE,        "set.save",          "Save settings",  "Enregistrer les r\xc3\xa9glages") \
+    X(SET_D_SAVE,      "set.d.save",                                         \
+        "Write these settings to ATLAS.INI so they survive a restart.",      \
+        "\xc3\x89""crire ces r\xc3\xa9glages dans ATLAS.INI pour qu'ils "     \
+        "survivent \xc3\xa0 un red\xc3\xa9marrage.")                          \
+    X(SET_SAVED,       "set.saved",         "Settings saved.",               \
+                                            "R\xc3\xa9glages enregistr\xc3\xa9s.") \
+    X(SET_UNSAVED,     "set.unsaved",                                        \
+        "Not saved. Leaving now puts back the previous settings.",           \
+        "Non enregistr\xc3\xa9. Quitter maintenant r\xc3\xa9tablit les "      \
+        "r\xc3\xa9glages pr\xc3\xa9""c\xc3\xa9""dents.")
 
 typedef enum {
 #define ATLAS_STR_ENUM(id, name, en, fr) ATLAS_STR_##id,

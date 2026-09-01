@@ -54,6 +54,14 @@ typedef enum {
 #define ATLAS_CFG_OFFSET_LIMIT   32
 #define ATLAS_CFG_OVERSCAN_LIMIT 64
 
+/*
+ * Longest auto-launch countdown the parser will keep, and so the
+ * highest the settings screen may offer. AtlasPS2 draws no clock while
+ * it waits, so from the user's side a long timeout and a hang look the
+ * same.
+ */
+#define ATLAS_CFG_TIMEOUT_MAX 30
+
 /** The whole of ATLAS.INI, as a struct. */
 typedef struct {
     /* [system] */

@@ -44,6 +44,17 @@ extern "C" {
 /** Empty both lists. Does not touch any device. */
 void atlas_fav_reset(void);
 
+/**
+ * Empty both lists on the user's behalf.
+ *
+ * The difference from atlas_fav_reset() is the dirty flag: reset() is
+ * what a load starts from and leaves the lists clean, so a save after
+ * it does nothing. This one marks them changed, so the following
+ * atlas_fav_save() actually writes the empty lists out - otherwise
+ * "clear favorites" would last until the next boot.
+ */
+void atlas_fav_clear(void);
+
 /* ------------------------------------------------------------------ */
 /* Favorites                                                           */
 /* ------------------------------------------------------------------ */

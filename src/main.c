@@ -18,6 +18,8 @@
 #include "atlas/device.h"
 #include "atlas/fav.h"
 #include "atlas/font.h"
+#include "atlas/launch.h"
+#include "atlas/power.h"
 #include "atlas/theme.h"
 #include "atlas/ui.h"
 #include "atlas/screen.h"
@@ -184,10 +186,10 @@ static void splash_loop(atlas_font_t *title, atlas_font_t *ui,
  * it only works if it is honoured here rather than in the video module,
  * which has no idea a hotkey exists.
  */
-static void load_settings(const boot_hotkeys_t *keys)
+static void load_settings(const boot_hotkeys_t *keys,
+                          atlas_config_t *cfg,
+                          atlas_config_origin_t *origin)
 {
-    atlas_config_t cfg;
-    atlas_config_origin_t origin;
     atlas_video_cfg_t running;
     int i;
 
@@ -196,9 +198,17 @@ static void load_settings(const boot_hotkeys_t *keys)
      * the stored configuration is what broke the console, and a
      * recovery mode that loads the file it is meant to repair is no
      * recovery at all.
+     *
+     * The defaults are still filled in, because the caller reads the
+     * struct either way and a recovery boot must not hand it garbage.
+     * The origin says LOADED rather than DEFAULTS so that skipping the
+     * file is not mistaken for a first boot: recovery must reach its
+     * own root, never the wizard.
      */
     if (keys->recovery) {
         ATLAS_LOG("CFG", "recovery: configuration not read");
+        atlas_config_defaults(cfg);
+        *origin = ATLAS_CFG_LOADED;
         return;
     }
 
@@ -210,9 +220,9 @@ static void load_settings(const boot_hotkeys_t *keys)
     for (i = 0; i < ATLAS_DEV_COUNT; i++)
         atlas_device_poll();
 
-    atlas_config_load(&cfg, &origin);
+    atlas_config_load(cfg, origin);
 
-    atlas_i18n_set_lang(cfg.lang);
+    atlas_i18n_set_lang(cfg->lang);
     atlas_i18n_load_overrides();
 
     /*
@@ -222,8 +232,8 @@ static void load_settings(const boot_hotkeys_t *keys)
      * examined - a missing theme leaves the built-in one active, which
      * is a cosmetic disappointment and must never be a boot failure.
      */
-    if (cfg.theme[0] != '\0' && strcmp(cfg.theme, "default") != 0)
-        atlas_theme_load(cfg.theme);
+    if (cfg->theme[0] != '\0' && strcmp(cfg->theme, "default") != 0)
+        atlas_theme_load(cfg->theme);
 
     /*
      * Favorites are read here, in the one place a device sweep has
@@ -244,8 +254,92 @@ static void load_settings(const boot_hotkeys_t *keys)
      */
     atlas_video_cfg_defaults(&running);
 
-    if (memcmp(&cfg.video, &running, sizeof(running)) != 0)
-        atlas_video_apply(&cfg.video);
+    if (memcmp(&cfg->video, &running, sizeof(running)) != 0)
+        atlas_video_apply(&cfg->video);
+}
+
+/* ------------------------------------------------------------------ */
+/* Auto-launch                                                         */
+/*                                                                     */
+/* [boot] default_app with a non-zero timeout launches that program    */
+/* without the user touching anything. It is the one feature here that */
+/* can take the console away from its own menu, so it is built to be   */
+/* escapable: any button cancels, and the count is drawn the whole     */
+/* time rather than running silently.                                  */
+/* ------------------------------------------------------------------ */
+
+#define AUTOBOOT_FPS 60
+
+/**
+ * Count down and launch, unless the user says otherwise.
+ *
+ * Deliberately drawn with the font directly rather than through the UI
+ * layer: this runs before the screen stack is started, and giving it a
+ * screen of its own would mean the stack had a root that vanishes,
+ * which is the one shape atlas_screen_pop() has no answer for.
+ *
+ * A launch that fails simply returns, and the menu comes up as usual -
+ * a bad path in the configuration must not be able to strand a console
+ * short of its own interface.
+ */
+static void autoboot(atlas_font_t *ui, const atlas_config_t *cfg)
+{
+    int left;
+    char buf[160];
+
+    if (cfg->default_app[0] == '\0' || cfg->timeout <= 0)
+        return;
+
+    /*
+     * Checked before the countdown, not after: a path that no longer
+     * resolves - a USB stick left unplugged, an application deleted -
+     * should cost the user nothing, not several seconds of watching a
+     * timer run down to a failure.
+     */
+    if (atlas_launch_check(cfg->default_app) != ATLAS_OK) {
+        ATLAS_LOG("BOOT", "default_app is not launchable: %s",
+                  cfg->default_app);
+        return;
+    }
+
+    for (left = cfg->timeout * AUTOBOOT_FPS; left > 0; left--) {
+        float y;
+
+        atlas_input_update();
+
+        /*
+         * Any button at all cancels, not a specific one. A user who
+         * wants their menu is pressing something; making them find the
+         * right key while a timer runs is the opposite of an escape.
+         */
+        if (atlas_input_pressed() != 0) {
+            ATLAS_LOG("BOOT", "auto-launch cancelled");
+            return;
+        }
+
+        atlas_video_frame_begin(COL_BG);
+
+        y = (float)atlas_video_safe_y() + 60.0f;
+        draw_centered(ui, y, COL_TEXT, cfg->default_app);
+
+        snprintf(buf, sizeof(buf), "%d",
+                 (left + AUTOBOOT_FPS - 1) / AUTOBOOT_FPS);
+        draw_centered(ui, y + 40.0f, COL_ACCENT, buf);
+
+        draw_centered(ui, y + 80.0f, COL_DIM,
+                      "Press any button to stay in AtlasPS2");
+
+        atlas_video_frame_end();
+    }
+
+    atlas_recent_note(cfg->default_app);
+    atlas_fav_save();
+
+    ATLAS_LOG("BOOT", "auto-launching %s", cfg->default_app);
+    atlas_launch_elf(cfg->default_app, 0, NULL);
+
+    /* Only reached when the launch failed. The menu follows. */
+    ATLAS_LOG("BOOT", "auto-launch failed; continuing to the menu");
 }
 
 /* ------------------------------------------------------------------ */
@@ -256,13 +350,26 @@ int main(int argc, char *argv[])
 {
     atlas_boot_status_t status;
     atlas_video_cfg_t vcfg;
+    atlas_config_t cfg;
+    atlas_config_origin_t origin;
     boot_hotkeys_t keys;
     atlas_font_t *font_ui = NULL;
     atlas_font_t *font_title = NULL;
+    atlas_screen_t *root;
+    const char *self_path;
     atlas_err_t err;
 
-    (void)argc;
-    (void)argv;
+    /*
+     * argv[0] is the only place the path we were launched from exists,
+     * and it is gone the moment anything else uses argv. It is stashed
+     * before the IOP is touched, since a reset that fails ends the
+     * program and the value would be lost for nothing.
+     *
+     * The path itself is validated later, once the IOP is up: at this
+     * point no filesystem is mounted, so a check here would reject
+     * every path on every device.
+     */
+    self_path = (argc > 0 && argv) ? argv[0] : NULL;
 
     /*
      * The IOP comes first: without it there is no pad to read hotkeys
@@ -323,10 +430,29 @@ int main(int argc, char *argv[])
      */
     atlas_device_init(status.memcard, status.usb);
 
-    load_settings(&keys);
+    /* Only now can the path be opened to see whether it is real. */
+    atlas_power_set_self_path(self_path);
+
+    load_settings(&keys, &cfg, &origin);
+
+    /*
+     * Auto-launch comes after the settings that decide whether it
+     * happens, and before the interface: a program that is going to
+     * take the console away should not first draw a menu the user has
+     * no time to use.
+     *
+     * Not on a recovery boot. Recovery exists because something is
+     * wrong, and the stored default application is a plausible
+     * candidate for what - handing the console straight to it would
+     * make the escape hatch escape into the same trap.
+     */
+    if (!keys.recovery)
+        autoboot(font_ui, &cfg);
 
     /*
      * From here the interface owns the frame loop.
+     *
+     * Three possible roots, in order of precedence:
      *
      * Recovery is a different ROOT, not a screen pushed over Home:
      * Home is drawn from a configuration that was deliberately not read
@@ -334,10 +460,28 @@ int main(int argc, char *argv[])
      * in the thing they held two buttons to escape. Recovery offers
      * "Start normally" as its own entry, which is the only way from one
      * to the other.
+     *
+     * The wizard runs when no configuration file was found anywhere -
+     * not when one was found and was damaged. A card whose ATLAS.INI
+     * failed to parse is recovered from its .BAK and reported as
+     * RECOVERED or PARTIAL; asking that user to set their language up
+     * again would be treating a repaired file as an absent one.
+     *
+     * Otherwise the startup setting picks between Home and the
+     * application list, which is what it exists to do.
      */
     atlas_ui_set_fonts(font_ui, font_title);
-    atlas_screen_reset(keys.recovery ? atlas_screen_recovery()
-                                     : atlas_screen_home());
+
+    if (keys.recovery)
+        root = atlas_screen_recovery();
+    else if (origin == ATLAS_CFG_DEFAULTS)
+        root = atlas_screen_wizard();
+    else if (cfg.startup == ATLAS_STARTUP_APPS)
+        root = atlas_screen_apps();
+    else
+        root = atlas_screen_home();
+
+    atlas_screen_reset(root);
     atlas_screen_run();
 
     atlas_device_shutdown();

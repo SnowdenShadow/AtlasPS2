@@ -35,6 +35,7 @@ typedef enum {
     HOME_GO_DEVICES,
     HOME_GO_VIDEO,
     HOME_GO_THEME,
+    HOME_GO_SETTINGS,
     HOME_GO_SYSINFO,
     HOME_GO_POWER
 } home_target_t;
@@ -52,7 +53,7 @@ static const home_entry_t s_entries[] = {
     { HOME_GO_DEVICES, ATLAS_STR_HOME_DEVICES,  ATLAS_STR_COUNT           },
     { HOME_GO_VIDEO,   ATLAS_STR_HOME_VIDEO,    ATLAS_STR_COUNT           },
     { HOME_GO_THEME,   ATLAS_STR_THEME_TITLE,   ATLAS_STR_COUNT           },
-    { HOME_GO_TODO,    ATLAS_STR_HOME_SETTINGS, ATLAS_STR_HOME_D_SETTINGS },
+    { HOME_GO_SETTINGS, ATLAS_STR_HOME_SETTINGS, ATLAS_STR_HOME_D_SETTINGS },
     { HOME_GO_SYSINFO, ATLAS_STR_HOME_SYSINFO,  ATLAS_STR_COUNT           },
     { HOME_GO_POWER,   ATLAS_STR_HOME_POWER,    ATLAS_STR_COUNT           }
 };
@@ -152,6 +153,9 @@ static void home_update(atlas_screen_t *self)
             break;
         case HOME_GO_THEME:
             atlas_screen_push(atlas_screen_theme());
+            break;
+        case HOME_GO_SETTINGS:
+            atlas_screen_push(atlas_screen_settings());
             break;
         case HOME_GO_SYSINFO:
             atlas_screen_push(atlas_screen_sysinfo());

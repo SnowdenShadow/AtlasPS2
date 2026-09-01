@@ -40,6 +40,30 @@ void atlas_power_shutdown(void);
 void atlas_power_exit_to_browser(void);
 
 /**
+ * Record the path AtlasPS2 was started from, for the restart entry.
+ *
+ * Called once from main() with argv[0]. What arrives there depends
+ * entirely on the launcher: uLaunchELF passes a full path, some
+ * bootstraps pass nothing at all, and a few pass a name with no device
+ * prefix. Only a path carrying a device prefix is kept, because a bare
+ * "BOOT.ELF" is not something LoadExecPS2() can resolve - it would fail
+ * after the IOP had already been reset, at the one point in the program
+ * where there is no screen left to report on.
+ *
+ * @param argv0 argv[0] as main() received it. NULL and "" are accepted.
+ */
+void atlas_power_set_self_path(const char *argv0);
+
+/**
+ * The stored self path, or NULL when there is none worth offering.
+ *
+ * The power menu uses this to decide whether the restart entry appears
+ * at all: an entry that cannot work is worse than an absent one, since
+ * it only fails after the console is already halfway through leaving.
+ */
+const char *atlas_power_self_path(void);
+
+/**
  * Restart AtlasPS2 from the path it was launched from.
  *
  * @param self_path the ELF path, e.g. "mc0:/BOOT/BOOT.ELF". If NULL or

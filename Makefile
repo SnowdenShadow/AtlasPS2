@@ -53,6 +53,12 @@ EE_SRC = \
 	src/device/device.c \
 	src/apps/app.c \
 	src/apps/launch.c \
+	src/disc/disc.c \
+	src/disc/lz4.c \
+	src/disc/image.c \
+	src/disc/compat.c \
+	src/disc/compat_io.c \
+	src/disc/frag.c \
 	src/ui/font.c \
 	src/ui/theme.c \
 	src/ui/theme_io.c \
@@ -65,6 +71,8 @@ EE_SRC = \
 	src/ui/screen_sysinfo.c \
 	src/ui/screen_video.c \
 	src/ui/screen_theme.c \
+	src/ui/screen_settings.c \
+	src/ui/screen_wizard.c \
 	src/ui/screen_power.c \
 	src/ui/screen_recovery.c \
 	src/ui/screen_install_run.c \

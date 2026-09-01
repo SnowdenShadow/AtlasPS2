@@ -46,11 +46,17 @@ src/boot/        IOP reset and IRX module loading
 src/video/       AtlasVideo: GS setup, modes, safe area
 src/input/       controller handling
 src/ui/          font rendering and the interface
+src/disc/        disc images: ISO/ZSO reading, ISO9660, per-game settings
 src/ui/assets/   baked font atlases (generated, committed)
 assets/themes/   an example theme, ready to copy to a card
 tools/           build-time asset generation
 docs/            architecture, build, install, recovery, themes
 ```
+
+Disc images are read and identified but not yet booted: the IOP-side
+drive emulation a game reads through is not in this repository, and
+[docs/DISC.md](docs/DISC.md) says what is done, what is missing and the
+contract the missing part has to meet.
 
 Themes are fifteen colours in a `theme.ini`; see
 [docs/THEMES.md](docs/THEMES.md). The built-in theme is compiled in and

@@ -19,7 +19,8 @@ CFLAGS += -Wall -Wextra -O1 -I../include -Ihost
 HDRS = $(wildcard ../include/atlas/*.h host/*.h)
 
 TESTS = test_utf8 test_path test_ini test_i18n test_config test_hash \
-        test_theme test_fav test_fs_path
+        test_theme test_fav test_fs_path test_disc test_lz4 test_image \
+        test_compat test_frag test_sector
 
 .PHONY: check clean
 
@@ -70,6 +71,67 @@ test_fav: test_fav.c ../src/core/fav.c ../src/core/ini.c $(HDRS)
 # is to wreck a Memory Card. fs.c itself calls fileXio and is not here.
 test_fs_path: test_fs_path.c ../src/core/fs_path.c $(HDRS)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
+
+# disc.c takes its sectors through a callback and never opens a file,
+# which is what makes this check possible at all: the images below are
+# built byte by byte in memory. The game ID it extracts is the key every
+# compatibility decision is made on, and a wrong one does not fail
+# loudly - it matches another game's entry. ini.c comes along because
+# SYSTEM.CNF is INI grammar and is parsed with the same reader.
+test_disc: test_disc.c ../src/disc/disc.c ../src/core/ini.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
+
+# lz4_vectors.h is committed and comes from the reference compressor
+# (tools/genlz4vec.py). A decoder checked only against its own encoder
+# can be uniformly wrong and still agree with itself, and this one runs
+# over every sector a compressed image is read through.
+test_lz4: test_lz4.c ../src/disc/lz4.c lz4_vectors.h $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
+
+# image.c calls fileXio, so host/ carries a stdio-backed stand-in for
+# it rather than the module taking a seam it would not have on the
+# console. What is being checked is the ZSO index arithmetic - which
+# block holds sector N - and a seam would let the check run against
+# different arithmetic from the one that ships.
+test_image: test_image.c ../src/disc/image.c ../src/disc/disc.c \
+            ../src/disc/lz4.c ../src/core/ini.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
+
+# compat.c is the settings and what they mean; compat_io.c is the read
+# off the card and is not here. Everything a wrong entry costs happens
+# in the parsing: a workaround that silently failed to parse looks
+# exactly like a game that needed a different one, and neither says so
+# until a television is in front of you. disc.c comes along for
+# atlas_disc_id_normalize(), which every section header goes through.
+test_compat: test_compat.c ../src/disc/compat.c ../src/disc/disc.c ../src/core/ini.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
+
+# frag.c reads its sectors through a callback, so the volumes it is
+# checked against are built in memory here rather than needing a card.
+test_frag: test_frag.c ../src/disc/frag.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
+
+test_sector: test_sector.c ../src/disc/sector.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
+
+# ------------------------------------------------------------------ #
+# Disc image fixtures                                                 #
+#                                                                     #
+# test_image compares the same disc as an ISO and as a ZSO, sector by #
+# sector. That pairing is the whole value of the check: a wrong index #
+# entry returns real data, correctly decompressed, from the wrong     #
+# place - which passes against any fixed expected value and cannot    #
+# pass against the same disc in another format.                       #
+#                                                                     #
+# The images are generated rather than committed (200 KB of data with #
+# no history worth keeping), and building the ZSO needs Python's lz4  #
+# module. `check` therefore does not depend on this: without the      #
+# images test_image reports SKIPPED, so a contributor who lacks the   #
+# module still gets a useful run out of every other check.            #
+# ------------------------------------------------------------------ #
+
+images:
+	python3 ../tools/genimage.py ../build/testimg
 
 clean:
 	rm -f $(TESTS)

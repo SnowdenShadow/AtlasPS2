@@ -32,8 +32,11 @@
  * same - and the escape from it is a button press they have to guess.
  * Thirty seconds is long enough to be deliberate and short enough that
  * waiting it out is always an option.
+ *
+ * Public in config.h for the same reason the trim limits are: the
+ * settings screen must stop where the parser stops.
  */
-#define CFG_TIMEOUT_MAX 30
+#define CFG_TIMEOUT_MAX ATLAS_CFG_TIMEOUT_MAX
 
 /* ------------------------------------------------------------------ */
 /* Defaults                                                            */

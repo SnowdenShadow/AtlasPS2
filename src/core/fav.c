@@ -38,6 +38,18 @@ void atlas_fav_reset(void)
     s_dirty    = 0;
 }
 
+void atlas_fav_clear(void)
+{
+    /*
+     * Same emptying, opposite intent. reset() is what a load starts
+     * from and must not schedule a card write; clear() is a user
+     * asking for the lists to be gone, and that has to reach the file
+     * or it comes back on the next boot.
+     */
+    atlas_fav_reset();
+    s_dirty = 1;
+}
+
 int atlas_fav_dirty(void)
 {
     return s_dirty;

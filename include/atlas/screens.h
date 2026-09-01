@@ -70,8 +70,35 @@ atlas_screen_t *atlas_screen_video(void);
  */
 atlas_screen_t *atlas_screen_theme(void);
 
+/**
+ * Every setting, in one list, grouped by section.
+ *
+ * Mostly doors: video, theme, devices and applications each have a
+ * screen that owns them, and this one opens those rather than keeping
+ * a second copy of their controls - two copies of the video clamps is
+ * one place for them to disagree, and the one that disagrees leaves a
+ * television showing nothing.
+ *
+ * What it edits itself is what has no home elsewhere: the language,
+ * the startup screen, the two cosmetic switches and the two boot keys.
+ * Saving reads ATLAS.INI and replaces only those, so it never undoes a
+ * video mode set from the screen it just opened.
+ */
+atlas_screen_t *atlas_screen_settings(void);
+
 /** Power options. Only the ones that can be performed safely appear. */
 atlas_screen_t *atlas_screen_power(void);
+
+/**
+ * The first-boot wizard: language, display, scan, then Home.
+ *
+ * A root, not a screen pushed over Home, because it runs before there
+ * is a configuration to draw Home from and because there is nothing
+ * sensible behind it to go back to. Used only when the configuration
+ * load reported ATLAS_CFG_DEFAULTS - that is, no file was found at all,
+ * which on a working install means this console has never run AtlasPS2.
+ */
+atlas_screen_t *atlas_screen_wizard(void);
 
 /**
  * The recovery root, used instead of Home when L1+R1 was held at boot.

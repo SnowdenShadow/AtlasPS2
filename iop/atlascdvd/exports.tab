@@ -1,0 +1,121 @@
+/*
+ * AtlasPS2 - atlascdvd exports.tab
+ *
+ * The export table of the module that replaces cdvdman.
+ *
+ * READ THIS BEFORE CHANGING A LINE OF IT
+ * --------------------------------------
+ * A game does not link to `sceCdRead`. It links to entry 6 of whatever
+ * library is registered under the name "cdvdman". The name in each
+ * DECLARE_EXPORT below is for a human; the *position* is the contract.
+ *
+ * So the table is dense and gapless from 0 to the last entry, and every
+ * position that the real cdvdman fills but this module does not must
+ * still be occupied - by a stub that fails politely. A missing line
+ * does not leave a hole: it shifts everything after it up by one, and
+ * a game that called sceCdSync() reaches sceCdGetDiskType() instead.
+ * That links cleanly, runs, and returns nonsense.
+ *
+ * Entries 0-3 are the module's own hooks, in the order loadcore
+ * expects: start, stop, restart, exit/keep-alive. Everything from 4 on
+ * matches the ordinals in $PS2SDK/iop/include/cdvdman.h, which is the
+ * only authority here - not this comment, and not memory.
+ *
+ * The real cdvdman's table runs past 190 on late consoles. This one
+ * stops at 84 (sceCdLayerSearchFile) because that is the last ordinal
+ * before the table becomes sparse, and a game linking to something
+ * beyond it gets a link failure - which is loud - rather than a wrong
+ * function, which is not.
+ */
+
+DECLARE_EXPORT_TABLE(cdvdman, 1, 1)
+
+/* 0-3: loadcore's own hooks. */
+DECLARE_EXPORT(_start)
+DECLARE_EXPORT(_retonly)        /* 1: shutdown  */
+DECLARE_EXPORT(_retonly)        /* 2: restart   */
+DECLARE_EXPORT(_retonly)        /* 3: unused    */
+
+/* 4 */  DECLARE_EXPORT(sceCdInit)
+/* 5 */  DECLARE_EXPORT(sceCdStandby)
+/* 6 */  DECLARE_EXPORT(sceCdRead)
+/* 7 */  DECLARE_EXPORT(sceCdSeek)
+/* 8 */  DECLARE_EXPORT(sceCdGetError)
+/* 9 */  DECLARE_EXPORT(sceCdGetToc)
+/* 10 */ DECLARE_EXPORT(sceCdSearchFile)
+/* 11 */ DECLARE_EXPORT(sceCdSync)
+/* 12 */ DECLARE_EXPORT(sceCdGetDiskType)
+/* 13 */ DECLARE_EXPORT(sceCdDiskReady)
+/* 14 */ DECLARE_EXPORT(sceCdTrayReq)
+/* 15 */ DECLARE_EXPORT(sceCdStop)
+/* 16 */ DECLARE_EXPORT(sceCdPosToInt)
+/* 17 */ DECLARE_EXPORT(sceCdIntToPos)
+/* 18 */ DECLARE_EXPORT(atlas_cdvd_null)      /* unused in the real one */
+/* 19 */ DECLARE_EXPORT(sceCdGetToc2)
+/* 20 */ DECLARE_EXPORT(sceCdReadDVDV)
+/* 21 */ DECLARE_EXPORT(sceCdCheckCmd)
+/* 22 */ DECLARE_EXPORT(sceCdRI)
+/* 23 */ DECLARE_EXPORT(sceCdWI)
+/* 24 */ DECLARE_EXPORT(sceCdReadClock)
+/* 25 */ DECLARE_EXPORT(sceCdWriteClock)
+/* 26 */ DECLARE_EXPORT(sceCdReadNVM)
+/* 27 */ DECLARE_EXPORT(sceCdWriteNVM)
+/* 28 */ DECLARE_EXPORT(sceCdStatus)
+/* 29 */ DECLARE_EXPORT(sceCdApplySCmd)
+/* 30 */ DECLARE_EXPORT(sceCdSetHDMode)
+/* 31 */ DECLARE_EXPORT(sceCdOpenConfig)
+/* 32 */ DECLARE_EXPORT(sceCdCloseConfig)
+/* 33 */ DECLARE_EXPORT(sceCdReadConfig)
+/* 34 */ DECLARE_EXPORT(sceCdWriteConfig)
+/* 35 */ DECLARE_EXPORT(sceCdReadKey)
+/* 36 */ DECLARE_EXPORT(sceCdDecSet)
+/* 37 */ DECLARE_EXPORT(sceCdCallback)
+/* 38 */ DECLARE_EXPORT(sceCdPause)
+/* 39 */ DECLARE_EXPORT(sceCdBreak)
+/* 40 */ DECLARE_EXPORT(sceCdReadCDDA)
+/* 41 */ DECLARE_EXPORT(sceCdReadConsoleID)
+/* 42 */ DECLARE_EXPORT(sceCdWriteConsoleID)
+/* 43 */ DECLARE_EXPORT(sceCdMV)
+/* 44 */ DECLARE_EXPORT(sceCdGetReadPos)
+/* 45 */ DECLARE_EXPORT(sceCdCtrlADout)
+/* 46 */ DECLARE_EXPORT(sceCdNop)
+/* 47 */ DECLARE_EXPORT(sceGetFsvRbuf)
+/* 48 */ DECLARE_EXPORT(sceCdstm0Cb)
+/* 49 */ DECLARE_EXPORT(sceCdstm1Cb)
+/* 50 */ DECLARE_EXPORT(sceCdSC)
+/* 51 */ DECLARE_EXPORT(sceCdRC)
+/* 52 */ DECLARE_EXPORT(sceCdForbidDVDP)
+/* 53 */ DECLARE_EXPORT(sceCdReadSUBQ)
+/* 54 */ DECLARE_EXPORT(sceCdApplyNCmd)
+/* 55 */ DECLARE_EXPORT(sceCdAutoAdjustCtrl)
+/* 56 */ DECLARE_EXPORT(sceCdStInit)
+/* 57 */ DECLARE_EXPORT(sceCdStRead)
+/* 58 */ DECLARE_EXPORT(sceCdStSeek)
+/* 59 */ DECLARE_EXPORT(sceCdStStart)
+/* 60 */ DECLARE_EXPORT(sceCdStStat)
+/* 61 */ DECLARE_EXPORT(sceCdStStop)
+/* 62 */ DECLARE_EXPORT(sceCdRead0)
+/* 63 */ DECLARE_EXPORT(sceCdRV)
+/* 64 */ DECLARE_EXPORT(sceCdRM)
+/* 65 */ DECLARE_EXPORT(sceCdWM)
+/* 66 */ DECLARE_EXPORT(sceCdReadChain)
+/* 67 */ DECLARE_EXPORT(sceCdStPause)
+/* 68 */ DECLARE_EXPORT(sceCdStResume)
+/* 69 */ DECLARE_EXPORT(sceCdForbidRead)
+/* 70 */ DECLARE_EXPORT(sceCdBootCertify)
+/* 71 */ DECLARE_EXPORT(sceCdSpinCtrlIOP)
+/* 72 */ DECLARE_EXPORT(sceCdBlueLEDCtl)
+/* 73 */ DECLARE_EXPORT(sceCdCancelPOffRdy)
+/* 74 */ DECLARE_EXPORT(sceCdPowerOff)
+/* 75 */ DECLARE_EXPORT(sceCdMmode)
+/* 76 */ DECLARE_EXPORT(sceCdReadFull)
+/* 77 */ DECLARE_EXPORT(sceCdStSeekF)
+/* 78 */ DECLARE_EXPORT(sceCdPOffCallback)
+/* 79 */ DECLARE_EXPORT(sceCdReadDiskID)
+/* 80 */ DECLARE_EXPORT(sceCdReadGUID)
+/* 81 */ DECLARE_EXPORT(sceCdSetTimeout)
+/* 82 */ DECLARE_EXPORT(sceCdReadModelID)
+/* 83 */ DECLARE_EXPORT(sceCdReadDvdDualInfo)
+/* 84 */ DECLARE_EXPORT(sceCdLayerSearchFile)
+
+END_EXPORT_TABLE

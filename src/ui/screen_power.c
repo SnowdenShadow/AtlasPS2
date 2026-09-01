@@ -15,11 +15,24 @@
  * Entries are built at enter() time rather than being a fixed table,
  * because the spec requires that only actions that can actually be
  * performed appear: offering "Power Off" on a console whose poweroff
- * module failed would be a button that silently does nothing.
+ * module failed would be a button that silently does nothing, and
+ * offering "Restart AtlasPS2" when we do not know where our own ELF
+ * lives would be a button that fails after the GS has already been
+ * released, with nothing left to draw the failure on.
+ *
+ * WHY THERE IS NO "RESTART CONSOLE"
+ * --------------------------------
+ * The PS2 has no software cold reset. What the SDK offers is
+ * ExecOSD(), which resets the IOP and hands control to the console's
+ * own browser - and that is exactly the entry above it, already
+ * described honestly as returning to the browser. A second row
+ * calling the same syscall under a name that promises a power cycle
+ * would be the same action with a false label.
  */
 
 typedef enum {
-    ACT_BROWSER = 0,
+    ACT_RESTART = 0,
+    ACT_BROWSER,
     ACT_SHUTDOWN,
     ACT_CANCEL,
     ACT_COUNT
@@ -44,6 +57,13 @@ static void power_enter(atlas_screen_t *self)
 {
     power_state_t *st = (power_state_t *)self->data;
     int n = 0;
+
+    if (atlas_power_self_path()) {
+        st->entries[n].action = ACT_RESTART;
+        st->entries[n].label  = ATLAS_STR_POWER_RESTART;
+        st->entries[n].detail = ATLAS_STR_POWER_D_RESTART;
+        n++;
+    }
 
     st->entries[n].action = ACT_BROWSER;
     st->entries[n].label  = ATLAS_STR_POWER_BROWSER;
@@ -72,6 +92,10 @@ static void power_enter(atlas_screen_t *self)
 static void perform(power_action_t action)
 {
     switch (action) {
+    case ACT_RESTART:
+        atlas_power_restart(atlas_power_self_path());
+        break;
+
     case ACT_BROWSER:
         atlas_power_exit_to_browser();
         break;
