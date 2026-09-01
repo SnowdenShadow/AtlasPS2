@@ -89,36 +89,45 @@ static atlas_err_t load_module(const char *name, void *image, unsigned int size,
 
 static atlas_err_t reset_iop(void)
 {
-    int tries;
-
-    /* RPC has to be up before we can ask the IOP to do anything. */
+    /*
+     * RPC has to be up before we can ask the IOP to do anything, and it
+     * has to be torn down again before the reset: SifExitRpc() releases
+     * the RPC channels the IOP is about to lose anyway, and leaving
+     * them registered across a reboot is what makes the SIF come back
+     * in a state where the first SifExecModuleBuffer() never answers.
+     */
     SifInitRpc(0);
+    SifExitRpc();
 
     /*
-     * SifIopReset returns 0 while the request could not be delivered.
-     * Bound the retries: an IOP that never accepts the reset is broken
-     * hardware, and spinning forever would just hang on a black screen.
+     * SifIopReset returns 0 while the request could not be delivered,
+     * which is a transient condition rather than a verdict, so this
+     * retries until it lands. It is not bounded for the same reason the
+     * sync below is not: there is no useful fallback from an IOP that
+     * will not reset, and a bound short enough to expire on working
+     * hardware turns a slow console into a black screen.
      */
-    for (tries = 0; tries < 1000; tries++) {
-        if (SifIopReset("", 0))
-            break;
-    }
+    while (!SifIopReset("", 0))
+        ;
 
-    if (tries >= 1000) {
-        ATLAS_LOG("BOOT", "IOP reset never accepted");
-        return ATLAS_EFATAL;
-    }
-
-    /* Wait for the IOP to finish rebooting. */
-    for (tries = 0; tries < 100000; tries++) {
-        if (SifIopSync())
-            break;
-    }
-
-    if (tries >= 100000) {
-        ATLAS_LOG("BOOT", "IOP never came back");
-        return ATLAS_EFATAL;
-    }
+    /*
+     * Wait for the IOP to finish rebooting, and wait without a bound.
+     *
+     * This loop used to give up after 100000 iterations, which reads
+     * like patience and is not: the body is two instructions, so the
+     * whole budget expires in a few milliseconds. A real IOP takes
+     * hundreds of milliseconds to come back. Under an emulator the
+     * reset completes at once and the bound is never approached, which
+     * is exactly why the fault only appeared on hardware - and appeared
+     * as a black screen, because giving up here returns EFATAL and
+     * main() has nothing to draw with yet.
+     *
+     * SifIopSync() is the only signal that the IOP is up, and there is
+     * nothing useful to do without one. A console whose IOP never
+     * returns is broken in a way no fallback reaches.
+     */
+    while (!SifIopSync())
+        ;
 
     /* The reset tore down RPC with it, so bring it back. */
     SifInitRpc(0);
