@@ -245,7 +245,7 @@ int atlas_device_poll(void)
     d = &s_dev[s_cursor];
     before = d->state;
 
-    if (before == ATLAS_DEV_READY && s_recheck[s_cursor] > 0) {
+    if (s_recheck[s_cursor] > 0) {
         s_recheck[s_cursor]--;
     } else {
         switch (d->id) {
@@ -271,8 +271,21 @@ int atlas_device_poll(void)
             break;
         }
 
-        s_recheck[s_cursor] = (d->state == ATLAS_DEV_READY)
-                                  ? STEADY_RECHECK_TURNS : 0;
+        /*
+         * An empty Memory Card slot had no backoff at all: unlike
+         * poll_mass(), it was blocking-probed (mcGetInfo + mcSync(MC_WAIT))
+         * at the full round-robin rate forever, card or no card. Any one
+         * of those IOP round trips landing while the IOP is momentarily
+         * busy with something else (the USB or pad poll on the same
+         * frame) stalls that frame - a freeze with no fixed trigger,
+         * which matches what was still being seen after the READY-state
+         * fix. Give an empty slot the same once-a-second cadence as a
+         * READY device; mass keeps its own separate, longer backoff.
+         */
+        s_recheck[s_cursor] =
+            (d->state == ATLAS_DEV_READY ||
+             d->id == ATLAS_DEV_MC0 || d->id == ATLAS_DEV_MC1)
+                ? STEADY_RECHECK_TURNS : 0;
     }
 
     /* Advance regardless, so one failing device cannot starve the rest. */
