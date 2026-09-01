@@ -63,11 +63,26 @@ typedef struct {
     atlas_compat_t    compat;   /**< the entry that applies, if any    */
     int               has_compat;
 
-    /** Absolute path as given, e.g. "mass:/DVD/GAME.ISO". */
+    /** Absolute path as given, e.g. "mass:/DVD/GAME.ISO". Unused when
+     *  is_hdl is set - an HDL game has no path, only a partition. */
     char path[256];
 
-    /** Which bdm device the file is on. */
+    /** Which bdm device the file is on. Unused when is_hdl is set. */
     int  device_index;
+
+    /**
+     * Set by atlas_discboot_prepare_hdl() instead of
+     * atlas_discboot_prepare(): the image is an HDL game partition on
+     * the internal HDD, read by raw ATA transfer rather than through a
+     * bdm device.
+     */
+    int is_hdl;
+
+    /** Absolute ATA sector where ISO data begins. Valid when is_hdl. */
+    u32 hdl_start_lba;
+
+    /** Size of the ISO data in 512-byte sectors. Valid when is_hdl. */
+    u32 hdl_total_sectors;
 } atlas_discboot_t;
 
 /**
@@ -86,6 +101,20 @@ typedef struct {
  *                      means anything but mass:.
  */
 atlas_err_t atlas_discboot_prepare(const char *path, atlas_discboot_t *out);
+
+/**
+ * Same as atlas_discboot_prepare(), for an HDL game partition on the
+ * internal HDD instead of a file on a bdm device.
+ *
+ * @param start_lba      first ATA sector of the ISO data (game.c has
+ *                        already skipped HDL's own 4 MB header).
+ * @param total_sectors  size of the ISO data in 512-byte sectors.
+ * @param display_name   shown in place of a path in the confirmation
+ *                        and failure dialogs, since there is no path.
+ */
+atlas_err_t atlas_discboot_prepare_hdl(u32 start_lba, u32 total_sectors,
+                                       const char *display_name,
+                                       atlas_discboot_t *out);
 
 /**
  * Hand the console to the game. Does not return on success.

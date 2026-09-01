@@ -14,19 +14,18 @@
 #include <fileXio_rpc.h>
 #include <io_common.h>
 #include <iox_stat.h>
+#include <libhdd.h>
 
 #include "atlas/game.h"
 #include "atlas/path.h"
 #include "atlas/log.h"
 
 /* ------------------------------------------------------------------ */
-/* Where to look                                                       */
+/* Where to look on USB                                                */
 /*                                                                     */
-/* USB only, and only because that is the whole of what the drive      */
-/* emulation reads today - see the scope note in docs/DISC.md. When    */
-/* bd_read() grows HDD support this table is where it becomes visible  */
-/* to the user, and until then listing an image somewhere unbootable   */
-/* would be offering a row that always refuses.                        */
+/* The internal HDD is scanned separately, below - it holds whole APA  */
+/* partitions rather than files in folders, so it has no equivalent of */
+/* this table.                                                         */
 /*                                                                     */
 /* The four folder names are the ones other PS2 launchers already use. */
 /* A user arriving with an existing stick should not have to move      */
@@ -179,11 +178,103 @@ static void scan_dir(const char *dir, atlas_device_id_t device)
     fileXioDclose(fd);
 }
 
+/* ------------------------------------------------------------------ */
+/* HDL partitions on the internal HDD                                  */
+/*                                                                     */
+/* An HDLoader-style installer gives each game its own APA partition,  */
+/* type 0x1337, separate from the __common partition device.c already  */
+/* mounts. fileXioDopen("hdd0:") lists main partitions only - a sub's   */
+/* own dread entry reports its main partition's name instead - so one   */
+/* row per installed game falls out with no dedup of our own.           */
+/*                                                                     */
+/* Game data does not start at the partition's own first sector: HDL    */
+/* reserves a 4 MB header (0x2000 512-byte sectors) ahead of it, a fact  */
+/* confirmed by reading hdl-dump's inject_data(), not guessed. That      */
+/* offset is added once, here, so hdl_start_lba is already the sector    */
+/* where ISO data begins and nothing downstream repeats the arithmetic.  */
+/* ------------------------------------------------------------------ */
+
+static void scan_hdl(void)
+{
+    iox_dirent_t ent;
+    int fd;
+
+    fd = fileXioDopen("hdd0:");
+    if (fd < 0)
+        return;
+
+    while (fileXioDread(fd, &ent) > 0) {
+        atlas_game_t *g;
+        char path[8 + sizeof(ent.name)];
+        u32 sub = 0;
+        int pfd, start, size;
+
+        if (ent.name[0] == '\0' || ent.stat.mode != APA_TYPE_HDL)
+            continue;
+
+        if (s_count >= ATLAS_GAME_MAX)
+            break;
+
+        snprintf(path, sizeof(path), "hdd0:%s", ent.name);
+
+        g = &s_games[s_count];
+        memset(g, 0, sizeof(*g));
+        snprintf(g->name, sizeof(g->name), "%.*s", (int)sizeof(g->name) - 1, ent.name);
+        snprintf(g->path, sizeof(g->path), "%.*s", (int)sizeof(g->path) - 1, path);
+        g->device = ATLAS_DEV_HDD;
+
+        /*
+         * private_0 is the subpartition count on a main partition's own
+         * dirent. A multi-slice HDL install (very large or dual-layer
+         * games split across several partitions) is a layout the boot
+         * side's single contiguous run does not describe - listed so
+         * the user sees it is there, but marked unstartable rather than
+         * read wrong.
+         */
+        if (ent.stat.private_0 > 0) {
+            g->is_hdl = 2;
+            s_count++;
+            continue;
+        }
+
+        pfd = fileXioOpen(path, FIO_O_RDONLY);
+        if (pfd < 0) {
+            g->is_hdl = 2;
+            s_count++;
+            continue;
+        }
+
+        start = fileXioIoctl2(pfd, HIOCGETPARTSTART, &sub, sizeof(sub),
+                              NULL, 0);
+        size  = fileXioIoctl2(pfd, HIOCGETSIZE, &sub, sizeof(sub),
+                              NULL, 0);
+        fileXioClose(pfd);
+
+        /* A partition too small to hold HDL's own header is not a game
+         * this installed, whatever its type byte claims. */
+        if (start < 0 || size < 0 || (u32)size <= 0x2000) {
+            g->is_hdl = 2;
+            s_count++;
+            continue;
+        }
+
+        g->is_hdl           = 1;
+        g->hdl_start_lba     = (u32)start + 0x2000;
+        g->hdl_total_sectors = (u32)size - 0x2000;
+        s_count++;
+    }
+
+    fileXioDclose(fd);
+}
+
 int atlas_game_scan(void)
 {
     unsigned int i;
 
     s_count = 0;
+
+    if (atlas_device_is_ready(ATLAS_DEV_HDD))
+        scan_hdl();
 
     if (atlas_device_is_ready(ATLAS_DEV_MASS)) {
         for (i = 0; i < sizeof(s_roots) / sizeof(s_roots[0]); i++) {

@@ -129,10 +129,13 @@ boot-list filter in `src/disc/btconf.c`, all three with host self-checks
 over them, and what remains in the IOP module is sequencing and
 hardware.
 
-Its scope today is deliberately one thing: **ISO images on a USB block
-device.** ZSO, HDD and SMB are each a change to that module's `bd_read()`
-and nothing else, which is why that function is the only place in it
-that knows where bytes come from.
+Its scope today is **ISO images on a USB block device, and HDL game
+partitions on the internal HDD** — the second added the same way the
+first was designed to allow: a change to `bd_read()` and nothing else,
+which is why that function is the only place in the module that knows
+where bytes come from. ZSO and SMB are not here yet, for the same
+reason HDD was not until now: one device, one format at a time, so a
+game that fails to boot has one new thing it can be.
 
 The rest of this section is the contract, including the parts not yet
 met. Every hardware row in [COMPATIBILITY.md](COMPATIBILITY.md) is
@@ -262,14 +265,16 @@ belongs in `COMPAT.INI` — not in the ELF.
 ## Order of work
 
 1. ISO only, from USB, one known-good game, no compression. Nothing else
-   moves until a game boots. **← the module is written to here, and is
-   unverified on hardware.**
-2. ZSO on top of that. One function, `bd_read()`, plus the block cache
+   moves until a game boots.
+2. HDL game partitions on the internal HDD: detection, listing, and
+   booting through the same module via raw ATA reads. **← the module is
+   written to here, and is unverified on hardware.**
+3. ZSO on top of that. One function, `bd_read()`, plus the block cache
    sizing in the section above.
-3. IGR and poweroff — before wide testing, not after, because everything
+4. IGR and poweroff — before wide testing, not after, because everything
    else is unpleasant to test without them.
-4. Sub-sector modes, then streaming titles.
-5. HDD and SMB.
+5. Sub-sector modes, then streaming titles.
+6. SMB.
 
 Test on hardware at each step. There is no emulator whose `cdvdman`
 behaviour is close enough to be evidence.

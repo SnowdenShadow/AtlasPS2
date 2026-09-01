@@ -125,10 +125,10 @@ extern "C" {
         "Copiez un fichier .ISO ou .ZSO dans l'un de ces dossiers "          \
         "d'une cl\xc3\xa9 USB :")                                            \
     X(GAMES_USB_ONLY,  "games.usb_only",                                     \
-        "Only USB is supported. Memory Cards and the hard disk are not "     \
-        "read by the disc emulation yet.",                                   \
-        "Seul l'USB est pris en charge. Les cartes m\xc3\xa9moire et le "    \
-        "disque dur ne sont pas encore lus par l'\xc3\xa9mulation.")         \
+        "USB and the internal hard disk are supported. Memory Cards are "    \
+        "not read by the disc emulation.",                                   \
+        "L'USB et le disque dur interne sont pris en charge. Les cartes "    \
+        "m\xc3\xa9moire ne sont pas lues par l'\xc3\xa9mulation.")           \
     X(GAMES_NO_USB,    "games.no_usb",                                       \
         "No USB drive is connected.",                                        \
         "Aucune cl\xc3\xa9 USB n'est connect\xc3\xa9""e.")                   \
@@ -155,6 +155,12 @@ extern "C" {
     X(GAMES_FAIL_OTHER,"games.fail.other",                                   \
         "The image could not be read.",                                      \
         "L'image n'a pas pu \xc3\xaatre lue.")                               \
+    X(GAMES_FAIL_HDL,  "games.fail.hdl",                                     \
+        "This HDD game's partition layout is not supported yet "             \
+        "(multi-slice install, or an unreadable header).",                   \
+        "La disposition de partition de ce jeu du disque dur n'est pas "     \
+        "encore prise en charge (installation multi-partie, ou en-t\xc3\xaa" \
+        "te illisible).")                                                    \
     /* The warning before the handover. This is the one dialog in the    */  \
     /* program whose purpose is to tell the user that what happens next  */  \
     /* is untested, so that a black screen is a disappointment and not a */  \

@@ -135,7 +135,16 @@ static void choose(games_state_t *st)
     if (!g)
         return;
 
-    err = atlas_discboot_prepare(g->path, &st->ready);
+    if (g->is_hdl == 2) {
+        st->mode = GS_FAILED;
+        st->fail_reason = ATLAS_STR_GAMES_FAIL_HDL;
+        return;
+    }
+
+    err = g->is_hdl
+        ? atlas_discboot_prepare_hdl(g->hdl_start_lba, g->hdl_total_sectors,
+                                     g->name, &st->ready)
+        : atlas_discboot_prepare(g->path, &st->ready);
 
     if (err != ATLAS_OK) {
         st->mode = GS_FAILED;
@@ -335,7 +344,8 @@ static void draw_empty(float x, float y, float w)
      * means the stick is. Telling them apart is the difference between
      * a user copying a file and a user buying a new stick.
      */
-    if (!atlas_device_is_ready(ATLAS_DEV_MASS)) {
+    if (!atlas_device_is_ready(ATLAS_DEV_MASS) &&
+        !atlas_device_is_ready(ATLAS_DEV_HDD)) {
         atlas_ui_text(x, y, ATLAS_ALIGN_LEFT, t->text,
                       atlas_str(ATLAS_STR_GAMES_NO_USB));
         y += lh * 1.6f;
@@ -420,10 +430,14 @@ static void games_draw(atlas_screen_t *self)
                               g->name,
                               w - (float)ATLAS_UI_PAD * 2.0f - 48.0f);
 
-        /* USB is the only device this can list today, so the tag says
-         * nothing useful - the extension does. A ZSO and an ISO of the
-         * same title are two rows with the same name otherwise. */
-        {
+        /* An HDL row has no file extension - only a partition - so it
+         * is tagged "HDD" instead. Everything else keeps the extension:
+         * a ZSO and an ISO of the same title are two rows with the same
+         * name otherwise. */
+        if (g->is_hdl) {
+            atlas_ui_text(x + w - (float)ATLAS_UI_PAD, row_y,
+                          ATLAS_ALIGN_RIGHT, t->text_dim, "HDD");
+        } else {
             const char *dot = strrchr(g->path, '.');
 
             if (dot)

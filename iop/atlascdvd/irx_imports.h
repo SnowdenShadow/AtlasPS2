@@ -18,6 +18,7 @@
 
 #include "irx.h"
 
+#include <atad.h>
 #include <bdm.h>
 #include <intrman.h>
 #include <loadcore.h>

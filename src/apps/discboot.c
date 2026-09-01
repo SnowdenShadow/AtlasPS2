@@ -35,6 +35,7 @@
 #include <fileXio_rpc.h>
 #include <fileio.h>
 #include <io_common.h>
+#include <libhdd.h>
 
 #include "atlas/btconf.h"
 #include "atlas/discboot.h"
@@ -61,6 +62,8 @@
 ATLAS_IRX(usbd);
 ATLAS_IRX(bdm);
 ATLAS_IRX(usbmass_bd);
+ATLAS_IRX(ps2dev9);
+ATLAS_IRX(ps2atad);
 ATLAS_IRX(atlascdvd);
 
 #undef ATLAS_IRX
@@ -212,6 +215,72 @@ atlas_err_t atlas_discboot_prepare(const char *path, atlas_discboot_t *out)
     return ATLAS_OK;
 }
 
+/** atlas_disc_probe()'s read callback, over an HDL partition's raw
+ *  ATA sectors - there is no open file, only a starting LBA. */
+static int probe_read_hdd(void *ctx, u32 lba, u32 count, void *buf)
+{
+    u32 start_lba = *(u32 *)ctx;
+    hddAtaTransfer_t xfer;
+
+    /* Disc sectors are 2048 bytes, ATA sectors are 512: four ATA
+     * sectors per disc sector, same conversion game.c already applied
+     * once to hdl_start_lba. */
+    xfer.lba  = start_lba + lba * 4;
+    xfer.size = count * 4;
+
+    if (fileXioDevctl("hdd0:", HDIOC_READSECTOR, &xfer, sizeof(xfer),
+                      buf, count * ATLAS_DISC_SECTOR_SIZE) < 0)
+        return -1;
+
+    return 0;
+}
+
+atlas_err_t atlas_discboot_prepare_hdl(u32 start_lba, u32 total_sectors,
+                                       const char *display_name,
+                                       atlas_discboot_t *out)
+{
+    atlas_err_t err;
+    const atlas_compat_t *entry;
+
+    if (!display_name || !display_name[0] || !out)
+        return ATLAS_EINVAL;
+
+    memset(out, 0, sizeof(*out));
+
+    out->is_hdl           = 1;
+    out->hdl_start_lba     = start_lba;
+    out->hdl_total_sectors = total_sectors;
+    snprintf(out->path, sizeof(out->path), "%s", display_name);
+
+    err = atlas_disc_probe(probe_read_hdd, &out->hdl_start_lba, &out->info);
+    if (err != ATLAS_OK) {
+        ATLAS_LOG("DISC", "%s is not a PS2 disc image (%d)",
+                  display_name, (int)err);
+        return err;
+    }
+
+    if (out->info.id[0] == 0) {
+        ATLAS_LOG("DISC", "%s has no boot entry", display_name);
+        return ATLAS_EFORMAT;
+    }
+
+    entry = atlas_compat_find(out->info.id);
+    if (entry) {
+        out->compat     = *entry;
+        out->has_compat = 1;
+    } else {
+        memset(&out->compat, 0, sizeof(out->compat));
+        snprintf(out->compat.id, sizeof(out->compat.id), "%s",
+                 out->info.id);
+    }
+
+    ATLAS_LOG("DISC", "%s: %s [%s] %s", display_name, out->info.id,
+              atlas_disc_region_str(out->info.region),
+              out->has_compat ? "compat entry found" : "no compat entry");
+
+    return ATLAS_OK;
+}
+
 /* ------------------------------------------------------------------ */
 /* Launching                                                           */
 /* ------------------------------------------------------------------ */
@@ -250,10 +319,17 @@ static void fill_arg(const atlas_discboot_t *ready, const char *within)
 {
     memset(&s_arg, 0, sizeof(s_arg));
 
-    s_arg.magic        = ATLASCDVD_MAGIC;
-    s_arg.version      = ATLASCDVD_ARG_VERSION;
-    s_arg.device       = ATLASCDVD_DEV_BDM;
-    s_arg.device_index = (unsigned int)ready->device_index;
+    s_arg.magic   = ATLASCDVD_MAGIC;
+    s_arg.version = ATLASCDVD_ARG_VERSION;
+
+    if (ready->is_hdl) {
+        s_arg.device           = ATLASCDVD_DEV_HDD;
+        s_arg.hdd_start_lba     = ready->hdl_start_lba;
+        s_arg.hdd_total_sectors = ready->hdl_total_sectors;
+    } else {
+        s_arg.device       = ATLASCDVD_DEV_BDM;
+        s_arg.device_index = (unsigned int)ready->device_index;
+    }
 
     if (ready->compat.flags & ATLAS_COMPAT_FORCE_DVD)
         s_arg.flags |= ATLASCDVD_F_FORCE_DVD;
@@ -273,7 +349,8 @@ static void fill_arg(const atlas_discboot_t *ready, const char *within)
      */
     s_arg.layer1_lba = 0;
 
-    snprintf(s_arg.path, sizeof(s_arg.path), "%s", within);
+    if (!ready->is_hdl)
+        snprintf(s_arg.path, sizeof(s_arg.path), "%s", within);
 }
 
 /* ------------------------------------------------------------------ */
@@ -463,7 +540,10 @@ atlas_err_t atlas_discboot_run(const atlas_discboot_t *ready)
     if (!ready || !ready->path[0])
         return ATLAS_EINVAL;
 
-    if (split_path(ready->path, &index, within, sizeof(within)) != 0)
+    /* An HDL game has no bdm path to split - it is a partition,
+     * already fully described by hdl_start_lba/hdl_total_sectors. */
+    if (!ready->is_hdl &&
+        split_path(ready->path, &index, within, sizeof(within)) != 0)
         return ATLAS_ENODEV;
 
     if (ready->info.boot[0] == 0) {
@@ -516,32 +596,51 @@ atlas_err_t atlas_discboot_run(const atlas_discboot_t *ready)
     sbv_patch_enable_lmb();
     sbv_patch_disable_prefix_check();
 
-    /*
-     * The device stack the module reads through. No filesystem driver:
-     * bdmfs_fatfs would mount the volume, and the module does not want
-     * it mounted - it reads the FAT itself, from raw sectors, precisely
-     * so that nothing walks a filesystem while the game runs.
-     */
-    if (LOAD(usbd, 0, NULL) != 0)
-        return ATLAS_EFAIL;
+    if (ready->is_hdl) {
+        /*
+         * Raw ATA reads need the controller and the ATA driver, and
+         * nothing else - no bdm, no filesystem. Both were resident
+         * before this reset for __common browsing and are gone now,
+         * same as usbd/bdm below; they are reloaded here for the same
+         * reason.
+         */
+        if (LOAD(ps2dev9, 0, NULL) != 0)
+            return ATLAS_EFAIL;
 
-    if (LOAD(bdm, 0, NULL) != 0)
-        return ATLAS_EFAIL;
+        if (LOAD(ps2atad, 0, NULL) != 0)
+            return ATLAS_EFAIL;
+    } else {
+        /*
+         * The device stack the module reads through. No filesystem
+         * driver: bdmfs_fatfs would mount the volume, and the module
+         * does not want it mounted - it reads the FAT itself, from raw
+         * sectors, precisely so that nothing walks a filesystem while
+         * the game runs.
+         */
+        if (LOAD(usbd, 0, NULL) != 0)
+            return ATLAS_EFAIL;
 
-    if (LOAD(usbmass_bd, 0, NULL) != 0)
-        return ATLAS_EFAIL;
+        if (LOAD(bdm, 0, NULL) != 0)
+            return ATLAS_EFAIL;
 
-    /*
-     * USB enumeration is not instant, and the module refuses to stay
-     * resident if the device is not there when it looks. Waiting a
-     * fixed interval is crude, but the alternative - asking bdm - means
-     * an RPC interface bdm does not export to the EE.
-     *
-     * Two seconds is longer than any stick observed and shorter than a
-     * user decides the console has hung.
-     */
-    for (tries = 0; tries < 40; tries++)
-        DelayThread(50000);
+        if (LOAD(usbmass_bd, 0, NULL) != 0)
+            return ATLAS_EFAIL;
+
+        /*
+         * USB enumeration is not instant, and the module refuses to
+         * stay resident if the device is not there when it looks.
+         * Waiting a fixed interval is crude, but the alternative -
+         * asking bdm - means an RPC interface bdm does not export to
+         * the EE.
+         *
+         * Two seconds is longer than any stick observed and shorter
+         * than a user decides the console has hung. An ATA controller
+         * needs no such wait: HIOCGETPARTSTART already worked before
+         * this reset, so the drive is known present.
+         */
+        for (tries = 0; tries < 40; tries++)
+            DelayThread(50000);
+    }
 
     /*
      * The module, and the block it reads. The address is passed as

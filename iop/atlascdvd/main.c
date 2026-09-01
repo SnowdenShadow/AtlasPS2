@@ -34,12 +34,14 @@
  *
  * WHAT IS AND IS NOT HERE
  * -----------------------
- * ISO images on a bdm block device - which on this console means USB.
- * That is deliberately the whole of it: docs/DISC.md sets out the order
- * this work goes in, and the first step is one format on one device, so
- * that when a game does not boot there is one thing it can be.
+ * ISO images on a bdm block device - which on this console means USB -
+ * and HDL game partitions on the internal HDD, read by raw ATA DMA
+ * instead of through a filesystem. docs/DISC.md sets out the order this
+ * work goes in: USB shipped first, on one format on one device, so that
+ * when a game does not boot there is one thing it can be; HDD is the
+ * second device, added the same way.
  *
- * ZSO, HDD and SMB are not here. Each is a change to bd_read() and to
+ * ZSO and SMB are not here. Each is a change to bd_read() and to
  * nothing else, which is why that function is the only place in this
  * file that knows where bytes come from.
  *
@@ -60,6 +62,7 @@
  * and the user cannot tell which they have.
  */
 
+#include <atad.h>
 #include <bdm.h>
 #include <intrman.h>
 #include <irx.h>
@@ -157,11 +160,23 @@ static u8 g_bounce[BOUNCE_BYTES] __attribute__((aligned(64)));
  * Read `count` device sectors, with retries.
  *
  * The only function in this file that knows where bytes come from.
- * ZSO, HDD and SMB each replace the body of this and nothing else.
+ * ZSO and SMB each replace the body of this and nothing else.
  */
 static int bd_read(u32 sector, u32 count, void *buf)
 {
     int tries;
+
+    if (g_arg.device == ATLASCDVD_DEV_HDD) {
+        for (tries = 0; tries < READ_RETRIES; tries++) {
+            if (sceAtaDmaTransfer(0, buf, g_arg.hdd_start_lba + sector,
+                                  count, ATA_DIR_READ) == 0)
+                return 0;
+
+            DelayThread(2000);
+        }
+
+        return -1;
+    }
 
     if (!g_bd)
         return -1;
@@ -748,7 +763,7 @@ int _start(int argc, char *argv[])
             || src->version != ATLASCDVD_ARG_VERSION)
             return MODULE_NO_RESIDENT_END;
 
-        if (src->device != ATLASCDVD_DEV_BDM)
+        if (src->device != ATLASCDVD_DEV_BDM && src->device != ATLASCDVD_DEV_HDD)
             return MODULE_NO_RESIDENT_END;
 
         /* Copied, not referenced: the block lives in EE memory the game
@@ -761,15 +776,17 @@ int _start(int argc, char *argv[])
          * it in memory as a filename. */
         g_arg.path[ATLASCDVD_PATH_MAX - 1] = 0;
 
-        if (g_arg.path[0] == 0)
+        if (g_arg.device == ATLASCDVD_DEV_BDM && g_arg.path[0] == 0)
+            return MODULE_NO_RESIDENT_END;
+
+        if (g_arg.device == ATLASCDVD_DEV_HDD && g_arg.hdd_total_sectors == 0)
             return MODULE_NO_RESIDENT_END;
     }
 
-    if (find_device() != 0)
-        return MODULE_NO_RESIDENT_END;
-
     /*
-     * The one and only time this module reads a filesystem.
+     * The one and only time this module reads a filesystem - and only
+     * for the BDM case: an HDL partition has no filesystem to walk, its
+     * one extent is already known from the EE side's own ioctl2 call.
      *
      * It happens here, in _start, because here the IOP is doing nothing
      * else: the game's modules are not loaded, its threads do not
@@ -781,8 +798,19 @@ int _start(int argc, char *argv[])
      * game that starts and reads garbage is several, and the user
      * cannot tell the second from a bad dump.
      */
-    if (atlas_frag_build(frag_read_cb, 0, g_arg.path, &g_fl) != ATLAS_OK)
-        return MODULE_NO_RESIDENT_END;
+    if (g_arg.device == ATLASCDVD_DEV_BDM) {
+        if (find_device() != 0)
+            return MODULE_NO_RESIDENT_END;
+
+        if (atlas_frag_build(frag_read_cb, 0, g_arg.path, &g_fl) != ATLAS_OK)
+            return MODULE_NO_RESIDENT_END;
+    } else {
+        g_fl.frag[0].start = 0;
+        g_fl.frag[0].count = g_arg.hdd_total_sectors;
+        g_fl.count         = 1;
+        g_fl.sector_size   = 512;
+        g_fl.size          = (u32)g_arg.hdd_total_sectors * 512;
+    }
 
     /* frag.c guarantees an empty list on failure, so this cannot be a
      * partial one. Checked anyway: the whole module is built on that

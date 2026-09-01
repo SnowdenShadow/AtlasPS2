@@ -7,9 +7,10 @@
  * ---------------------------------------------
  * An application is anything with an ELF header, anywhere the scan
  * looks. A disc image is only usable if the drive emulation can read
- * it, and today that means one device: the USB stick. Listing an image
- * on a Memory Card would be listing something that cannot be started,
- * and a row that always refuses is worse than a row that is not there.
+ * it - a USB file, or a game an HDLoader-style installer put in its
+ * own APA partition on the internal HDD. Listing an image on a Memory
+ * Card would be listing something that cannot be started, and a row
+ * that always refuses is worse than a row that is not there.
  *
  * So this scan is deliberately narrower than the application scan, and
  * the narrowness is the point rather than an omission.
@@ -49,11 +50,29 @@ typedef struct {
     /** Filename without its extension, tidied for display. */
     char name[ATLAS_GAME_NAME_MAX];
 
-    /** Full path, ready for atlas_discboot_prepare(). */
+    /** Full path, ready for atlas_discboot_prepare(). Unused when
+     *  is_hdl is set - an HDL game has no path, only a partition. */
     char path[ATLAS_GAME_PATH_MAX];
 
     /** Which device it was found on. */
     atlas_device_id_t device;
+
+    /**
+     * 0: an ordinary file, start with atlas_discboot_prepare(path).
+     * 1: an HDL game partition, start with atlas_discboot_prepare_hdl().
+     * 2: an HDL partition this cannot start - multi-slice, or its
+     *    header could not be read. Listed so the user knows it is
+     *    there, refused before atlas_discboot_prepare_hdl() is tried.
+     */
+    int is_hdl;
+
+    /** Absolute ATA sector where ISO data begins, HDL's own 4 MB
+     *  reserved header already skipped. Valid only when is_hdl == 1. */
+    u32 hdl_start_lba;
+
+    /** Size of the ISO data in 512-byte sectors, header excluded.
+     *  Valid only when is_hdl == 1. */
+    u32 hdl_total_sectors;
 } atlas_game_t;
 
 /**

@@ -87,7 +87,9 @@ same time, and most are.
 | Recovery mode (hold L1+R1) | implemented | No theme, no config read, minimal drawing |
 | Memory Card browsing (mc0, mc1) | implemented | |
 | USB mass storage | implemented | `bdm` + `bdmfs_fatfs` + `usbmass_bd` |
-| Internal HDD | implemented, read-only | `ps2dev9`/`ps2atad`/`ps2hdd`/`ps2fs`; only the `__common` PFS partition is mounted, read-only |
+| Internal HDD: `__common` browsing | implemented, read-only | `ps2dev9`/`ps2atad`/`ps2hdd`/`ps2fs`; only the `__common` PFS partition is mounted, read-only |
+| Internal HDD: HDL game partitions (listing) | implemented, **UNTESTED** | Detected via `hdd0:` APA enumeration (`APA_TYPE_HDL`) and `fileXioIoctl2()`; see below |
+| Internal HDD: HDL game partitions (booting) | written, **never run** | Raw `sceAtaDmaTransfer()` reads, no filesystem; see below and [DISC.md](DISC.md) |
 | MX4SIO (SD over the memory card port) | **not implemented** | Needs a driver this repository does not contain |
 | Network (SMB, host:) | **not implemented** | No network stack is linked |
 | ELF launching | implemented | `LoadExecPS2` after cleanup |
@@ -103,7 +105,8 @@ same time, and most are.
 | Per-title profiles | implemented | Parsed, formatted and applied to video settings |
 | Compatibility database (per-game) | implemented | Read from a user-editable file; ships empty |
 | Disc image reading (ISO/ZSO) | implemented | Listed, identified, and read sector by sector |
-| Booting a game from an image | written, **never run** | The IOP module builds and links; no console has executed it — see [DISC.md](DISC.md) |
+| Booting a game from an image (USB) | written, **never run** | The IOP module builds and links; no console has executed it — see [DISC.md](DISC.md) |
+| Booting an HDL game (internal HDD) | written, **never run** | Same IOP module, raw ATA reads instead of a filesystem — see [DISC.md](DISC.md) |
 | Bootstrap / exploit installation | **deliberately absent** | See below |
 
 ### Why MX4SIO and network are listed as not implemented
@@ -119,11 +122,37 @@ change and the device manager grows the entries.
 `ps2fs.irx` is ps2sdk's own PFS driver, not a Sony binary — the same
 posture as `atlascdvd` for disc emulation. Only the `__common` partition
 is mounted, and only read-only (`FIO_MT_RDONLY` at the `fileXioMount()`
-call, not just "nothing calls write"). A drive holding HDLoader-style
-game installs has one PFS filesystem per game; browsing those, writing
-to the HDD, formatting it, or booting a game directly from it are all
-**not implemented** — separate, larger features, tracked as future work,
-not attempted here given the real data on a user's physical drive.
+call, not just "nothing calls write"). Writing to the HDD or formatting
+it are **not implemented** — not attempted here given the real data on
+a user's physical drive.
+
+A drive holding HDLoader-style game installs (as made by "HDLB"/HDL
+Batch and similar tools) has one APA partition per game, type
+`0x1337` (`APA_TYPE_HDL`), separate from `__common` and never a PFS
+filesystem — so listing these needed a second code path, added
+alongside `__common` browsing rather than replacing it:
+
+- **Detection and listing.** `hdd0:` is enumerated directly
+  (`fileXioDopen`/`fileXioDread`), filtering on `stat.mode ==
+  APA_TYPE_HDL`. For each match, `fileXioIoctl2()` with
+  `HIOCGETPARTSTART`/`HIOCGETSIZE` recovers the partition's start
+  sector and size; the game data itself starts `0x2000` (512-byte ATA)
+  sectors into the partition — a fixed 4 MB header every HDL installer
+  writes — confirmed from `hdl-dump`'s source, not guessed. A
+  partition split across several sub-partitions (`stat.private_0 > 0`,
+  a multi-slice install for a very large game) is listed but marked
+  unstartable, since the boot side only knows how to read one
+  contiguous run. **Never run on a console** — if a game does not show
+  up, or shows with "format not recognised", that is the first thing
+  to report; it means one of the two ioctl2 assumptions above needs
+  correcting.
+- **Booting.** Reuses the exact same `atlascdvd` IOP module that boots
+  a USB image, with one more branch in `bd_read()`: instead of reading
+  through `bdm`, it calls `sceAtaDmaTransfer()` directly — the same
+  function, same signature, `ps2hdd.irx`/PFS not involved at all — the
+  same way OPL's own HDD backend does it. No filesystem is walked; the
+  game's data is treated as one contiguous run of sectors, known
+  entirely from the listing step above. **Never run on a console.**
 
 ### Why bootstrap installation is deliberately absent
 
