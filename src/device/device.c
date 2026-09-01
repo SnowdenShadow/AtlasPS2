@@ -30,6 +30,20 @@ static int s_cursor;        /* which device the next poll will probe */
 static int s_ready;
 
 /*
+ * Once a device is confirmed READY, re-probing it on every one of its
+ * turns costs a blocking IOP round trip (mcSync(MC_WAIT) for a card,
+ * fileXioDopen/Dclose for USB) up to ~15 times a second per device -
+ * three out of every four render frames doing hardware I/O forever, for
+ * no reason once nothing has changed. That is the "repeatedly poll
+ * devices in a way that causes freezes" case this layer exists to avoid.
+ * A READY device is instead left alone for this many of its own turns
+ * before being re-checked; removal is still noticed within about a
+ * second, which is plenty for a status icon.
+ */
+#define STEADY_RECHECK_TURNS 15
+static int s_recheck[ATLAS_DEV_COUNT];
+
+/*
  * USB enumeration is not instant: the IOP has to see the device, read
  * its descriptors and mount the filesystem, which takes seconds on some
  * sticks. Probing it every poll while it is still coming up costs a
@@ -199,6 +213,7 @@ atlas_err_t atlas_device_init(int have_memcard, int have_usb)
     s_have_usb     = have_usb;
     s_cursor       = 0;
     s_mass_backoff = 0;
+    memset(s_recheck, 0, sizeof(s_recheck));
 
     if (s_have_memcard) {
         /*
@@ -230,27 +245,34 @@ int atlas_device_poll(void)
     d = &s_dev[s_cursor];
     before = d->state;
 
-    switch (d->id) {
-    case ATLAS_DEV_MC0:
-        poll_memcard(d, 0);
-        break;
-    case ATLAS_DEV_MC1:
-        poll_memcard(d, 1);
-        break;
-    case ATLAS_DEV_MASS:
-        poll_mass(d);
-        break;
-    case ATLAS_DEV_HDD:
-        /*
-         * The HDD needs its own module set (dev9, atad, hdd, pfs) that
-         * is not loaded yet, and mounting a partition is a separate
-         * step. Until then it is honestly absent rather than shown as
-         * an entry that fails when opened.
-         */
-        d->state = ATLAS_DEV_ABSENT;
-        break;
-    default:
-        break;
+    if (before == ATLAS_DEV_READY && s_recheck[s_cursor] > 0) {
+        s_recheck[s_cursor]--;
+    } else {
+        switch (d->id) {
+        case ATLAS_DEV_MC0:
+            poll_memcard(d, 0);
+            break;
+        case ATLAS_DEV_MC1:
+            poll_memcard(d, 1);
+            break;
+        case ATLAS_DEV_MASS:
+            poll_mass(d);
+            break;
+        case ATLAS_DEV_HDD:
+            /*
+             * The HDD needs its own module set (dev9, atad, hdd, pfs) that
+             * is not loaded yet, and mounting a partition is a separate
+             * step. Until then it is honestly absent rather than shown as
+             * an entry that fails when opened.
+             */
+            d->state = ATLAS_DEV_ABSENT;
+            break;
+        default:
+            break;
+        }
+
+        s_recheck[s_cursor] = (d->state == ATLAS_DEV_READY)
+                                  ? STEADY_RECHECK_TURNS : 0;
     }
 
     /* Advance regardless, so one failing device cannot starve the rest. */
