@@ -56,32 +56,57 @@ static int s_mass_backoff;
 /* Memory Cards                                                        */
 /* ------------------------------------------------------------------ */
 
-/**
- * Probe one Memory Card slot.
+/*
+ * mcGetInfo() only queues the request; mcSync() is what actually waits
+ * for the IOP's reply. MC_WAIT blocks the EE until that reply arrives,
+ * and how long that takes is up to the card controller - on hardware it
+ * is not always the couple of microseconds it is under an emulator. One
+ * slow reply landing inside a render frame is a stall with no visible
+ * trigger, which is exactly what "still freezes sometimes, no pattern"
+ * looks like even after throttling how *often* this runs.
  *
- * libmc is asynchronous: the mc* call queues the request and mcSync()
- * waits for it. The result that matters is mcSync's, not mcGetInfo's -
- * libmc.h is explicit that the `format` out-parameter is emulated and
- * that the sync result should be trusted instead.
+ * The fix is to never wait at all: poll with MC_NOWAIT and spread the
+ * result across as many frames as the IOP needs, using the request as
+ * this slot's own ready signal. The out-parameters must survive between
+ * those frames, so they move from locals into per-slot state.
  */
-static void poll_memcard(atlas_device_t *d, int port)
+typedef struct {
+    int pending;
+    int type, free_clusters, format;
+    int cmd, result;
+} mc_probe_t;
+
+static mc_probe_t s_mc_probe[2];
+
+/**
+ * Probe one Memory Card slot without ever blocking on the IOP.
+ *
+ * @return 1 once the device's state reflects a finished probe, 0 while
+ *         a request is still in flight (call again next turn).
+ */
+static int poll_memcard(atlas_device_t *d, int port)
 {
-    int type = 0, free_clusters = 0, format = 0;
-    int cmd = 0, result = 0;
+    mc_probe_t *p = &s_mc_probe[port];
 
     if (!s_have_memcard) {
         d->state = ATLAS_DEV_ABSENT;
-        return;
+        return 1;
     }
 
-    if (mcGetInfo(port, 0, &type, &free_clusters, &format) < 0) {
-        d->state = ATLAS_DEV_ERROR;
-        d->detail = "Memory Card interface not responding";
-        d->free_kb = -1;
-        return;
+    if (!p->pending) {
+        if (mcGetInfo(port, 0, &p->type, &p->free_clusters, &p->format) < 0) {
+            d->state = ATLAS_DEV_ERROR;
+            d->detail = "Memory Card interface not responding";
+            d->free_kb = -1;
+            return 1;
+        }
+        p->pending = 1;
     }
 
-    mcSync(MC_WAIT, &cmd, &result);
+    if (mcSync(MC_NOWAIT, &p->cmd, &p->result) == 0)
+        return 0; /* IOP has not answered yet */
+
+    p->pending = 0;
 
     /*
      * mcSync results, from libmc.h:
@@ -95,27 +120,27 @@ static void poll_memcard(atlas_device_t *d, int port)
      * absent: the user needs to be told to format it, not left
      * wondering why their card does not show up.
      */
-    if (result == -2) {
+    if (p->result == -2) {
         d->state = ATLAS_DEV_UNFORMATTED;
         d->detail = "Card is not formatted";
         d->free_kb = -1;
-        return;
+        return 1;
     }
 
-    if (result < -2) {
+    if (p->result < -2) {
         d->state = ATLAS_DEV_ERROR;
         d->detail = "Card unreadable (PS1 card, or damaged)";
         d->free_kb = -1;
-        return;
+        return 1;
     }
 
-    if (type != sceMcTypePS2) {
+    if (p->type != sceMcTypePS2) {
         /*
          * A PS1 card or a PocketStation physically fits slot 1. It is
          * present, but nothing here can use it, so say so rather than
          * offering a path that every later operation would fail on.
          */
-        if (type == sceMcTypeNoCard) {
+        if (p->type == sceMcTypeNoCard) {
             d->state = ATLAS_DEV_ABSENT;
             d->detail = NULL;
         } else {
@@ -123,14 +148,15 @@ static void poll_memcard(atlas_device_t *d, int port)
             d->detail = "Not a PS2 Memory Card";
         }
         d->free_kb = -1;
-        return;
+        return 1;
     }
 
     d->state = ATLAS_DEV_READY;
     d->detail = NULL;
 
     /* A PS2 card cluster is 1024 bytes, so clusters == kilobytes. */
-    d->free_kb = (free_clusters >= 0) ? free_clusters : -1;
+    d->free_kb = (p->free_clusters >= 0) ? p->free_clusters : -1;
+    return 1;
 }
 
 /* ------------------------------------------------------------------ */
@@ -145,18 +171,18 @@ static void poll_memcard(atlas_device_t *d, int port)
  * device is there, and the backoff above keeps it from being paid every
  * frame when it is not.
  */
-static void poll_mass(atlas_device_t *d)
+static int poll_mass(atlas_device_t *d)
 {
     int fd;
 
     if (!s_have_usb) {
         d->state = ATLAS_DEV_ABSENT;
-        return;
+        return 1;
     }
 
     if (d->state != ATLAS_DEV_READY && s_mass_backoff > 0) {
         s_mass_backoff--;
-        return;
+        return 1;
     }
 
     fd = fileXioDopen("mass:/");
@@ -166,7 +192,7 @@ static void poll_mass(atlas_device_t *d)
         d->detail = NULL;
         d->free_kb = -1;
         s_mass_backoff = MASS_RETRY_POLLS;
-        return;
+        return 1;
     }
 
     fileXioDclose(fd);
@@ -181,6 +207,7 @@ static void poll_mass(atlas_device_t *d)
      * enough to justify that.
      */
     d->free_kb = -1;
+    return 1;
 }
 
 /* ------------------------------------------------------------------ */
@@ -214,6 +241,7 @@ atlas_err_t atlas_device_init(int have_memcard, int have_usb)
     s_cursor       = 0;
     s_mass_backoff = 0;
     memset(s_recheck, 0, sizeof(s_recheck));
+    memset(s_mc_probe, 0, sizeof(s_mc_probe));
 
     if (s_have_memcard) {
         /*
@@ -248,15 +276,17 @@ int atlas_device_poll(void)
     if (s_recheck[s_cursor] > 0) {
         s_recheck[s_cursor]--;
     } else {
+        int settled = 1;
+
         switch (d->id) {
         case ATLAS_DEV_MC0:
-            poll_memcard(d, 0);
+            settled = poll_memcard(d, 0);
             break;
         case ATLAS_DEV_MC1:
-            poll_memcard(d, 1);
+            settled = poll_memcard(d, 1);
             break;
         case ATLAS_DEV_MASS:
-            poll_mass(d);
+            settled = poll_mass(d);
             break;
         case ATLAS_DEV_HDD:
             /*
@@ -271,21 +301,25 @@ int atlas_device_poll(void)
             break;
         }
 
-        /*
-         * An empty Memory Card slot had no backoff at all: unlike
-         * poll_mass(), it was blocking-probed (mcGetInfo + mcSync(MC_WAIT))
-         * at the full round-robin rate forever, card or no card. Any one
-         * of those IOP round trips landing while the IOP is momentarily
-         * busy with something else (the USB or pad poll on the same
-         * frame) stalls that frame - a freeze with no fixed trigger,
-         * which matches what was still being seen after the READY-state
-         * fix. Give an empty slot the same once-a-second cadence as a
-         * READY device; mass keeps its own separate, longer backoff.
-         */
-        s_recheck[s_cursor] =
-            (d->state == ATLAS_DEV_READY ||
-             d->id == ATLAS_DEV_MC0 || d->id == ATLAS_DEV_MC1)
-                ? STEADY_RECHECK_TURNS : 0;
+        if (!settled) {
+            /* mcSync(MC_NOWAIT) hasn't got its answer yet - come straight
+             * back next turn instead of waiting out a cooldown for a
+             * result that isn't in yet. */
+            s_recheck[s_cursor] = 0;
+        } else {
+            /*
+             * An empty Memory Card slot had no backoff at all: unlike
+             * poll_mass(), it was blocking-probed (mcGetInfo +
+             * mcSync(MC_WAIT)) at the full round-robin rate forever, card
+             * or no card. Give it the same once-a-second cadence as a
+             * READY device now that a finished probe is what triggers
+             * this; mass keeps its own separate, longer backoff.
+             */
+            s_recheck[s_cursor] =
+                (d->state == ATLAS_DEV_READY ||
+                 d->id == ATLAS_DEV_MC0 || d->id == ATLAS_DEV_MC1)
+                    ? STEADY_RECHECK_TURNS : 0;
+        }
     }
 
     /* Advance regardless, so one failing device cannot starve the rest. */
