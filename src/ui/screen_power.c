@@ -165,10 +165,8 @@ static void power_draw(atlas_screen_t *self)
 
     atlas_ui_header(atlas_str(ATLAS_STR_HOME_POWER));
 
-    y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
-    atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text,
-                        atlas_str(ATLAS_STR_HOME_POWER));
-    y += atlas_ui_line_height() * 2.2f;
+    y = atlas_ui_content_y();
+    y = atlas_ui_content_y();
 
     for (i = 0; i < st->count; i++) {
         atlas_ui_menu_row(x, y, row_w, i == st->cursor,

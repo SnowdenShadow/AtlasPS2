@@ -112,7 +112,7 @@ The first column is arithmetic over bytes: parsing, clamping, path
 joining, defaults. It has no fileXio, no gsKit and no PS2SDK dependency
 beyond `tamtypes.h`, so it **compiles with the system compiler on the
 build machine** and is covered by the suites in [tests/](../tests).
-`make check` runs seventeen of them.
+`make check` runs eighteen of them.
 
 The second column is the part that opens files and talks to the GS. It
 cannot be tested off-console and is therefore kept as thin as the split

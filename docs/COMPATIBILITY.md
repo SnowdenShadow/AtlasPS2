@@ -26,8 +26,9 @@ reasoning about the code.
 
 ## Console and feature matrix
 
-Nothing below has been run on physical hardware yet. This table exists so
-that the first person who does has somewhere to put the answer.
+One physical console has now run the launcher; the model was not
+recorded, so it is a row of its own rather than a claim about any of the
+models below. Everything else here is still `UNTESTED`.
 
 | Console model | ROM | Region | Boot method | AtlasPS2 | USB | HDD | MX4SIO | Video | Notes |
 |---|---|---|---|---|---|---|---|---|---|
@@ -38,7 +39,21 @@ that the first person who does has somewhere to put the answer.
 | SCPH-750xx (slim) | UNTESTED | PAL | UNTESTED | UNTESTED | UNTESTED | UNTESTED | UNTESTED | UNTESTED | |
 | SCPH-770xx (slim) | UNTESTED | NTSC-U | UNTESTED | UNTESTED | UNTESTED | UNTESTED | UNTESTED | UNTESTED | |
 | SCPH-900xx (slim, late) | UNTESTED | PAL | UNTESTED | UNTESTED | UNTESTED | UNTESTED | UNTESTED | UNTESTED | Integrated PSU; late ROM revisions |
+| Unrecorded model (reporter's console) | UNTESTED | UNTESTED | uLaunchELF | PARTIAL | UNTESTED | UNTESTED | UNTESTED | WORKS | Boots to the interface; see below |
 | PCSX2 (emulator) | n/a | both | ELF from folder | PARTIAL | UNTESTED | UNTESTED | n/a | PARTIAL | Development only; see below |
+
+### The one hardware result
+
+Launched from uLaunchELF. The first attempt was a black screen: the IOP
+reset wait was bounded in loop iterations rather than in time, and a real
+IOP takes hundreds of milliseconds where PCSX2 takes none, so the wait
+expired and `main()` returned before video was ever brought up. With
+unbounded waits the console reaches the interface and draws it.
+
+`PARTIAL` and not `WORKS`, because that is all that has been confirmed.
+Nobody has yet reported a Memory Card write, a USB stick enumerating, an
+application launching, or a game booting on that console — and the pad
+fix that went in alongside has not been confirmed on hardware at all.
 
 ### What "PCSX2 PARTIAL" means here
 

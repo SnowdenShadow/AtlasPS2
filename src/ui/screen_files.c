@@ -47,7 +47,20 @@
 #include "atlas/log.h"
 
 #define FM_PATH_MAX 256
-#define FM_VISIBLE  9
+
+/*
+ * Rows are counted at draw time rather than fixed: see the note in
+ * screen_apps.c.
+ *
+ * The file manager's reserve is the largest of the list screens: the
+ * path sits above the list rather than below it, and the clipboard line
+ * and the truncation warning both sit under it.
+ */
+static int fm_visible(void)
+{
+    return atlas_ui_rows_fit(atlas_ui_content_y_titled(),
+                             atlas_ui_line_height() * 3.2f);
+}
 
 /* A Memory Card caps filenames at 32 bytes, so that is the ceiling
  * everywhere: a name that works on a stick and not on a card is a
@@ -643,8 +656,8 @@ static void update_browse(fm_state_t *st)
 
         if (st->cursor < st->top)
             st->top = st->cursor;
-        if (st->cursor >= st->top + FM_VISIBLE)
-            st->top = st->cursor - FM_VISIBLE + 1;
+        if (st->cursor >= st->top + fm_visible())
+            st->top = st->cursor - fm_visible() + 1;
     }
 
     /*
@@ -990,7 +1003,7 @@ static void fm_draw(atlas_screen_t *self)
 
     atlas_ui_header(atlas_str(ATLAS_STR_FM_TITLE));
 
-    y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
+    y = atlas_ui_content_y();
 
     /* The path, not the screen's name: where they are matters far more
      * to the user than what the screen is called. */
@@ -998,7 +1011,7 @@ static void fm_draw(atlas_screen_t *self)
                           st->path[0] ? st->path
                                       : atlas_str(ATLAS_STR_HOME_DEVICES),
                           w);
-    y += lh * 1.8f;
+    y = atlas_ui_content_y_titled();
 
     if (st->unreadable)
         atlas_ui_text(x, y, ATLAS_ALIGN_LEFT, t->warn,
@@ -1007,7 +1020,7 @@ static void fm_draw(atlas_screen_t *self)
         atlas_ui_text(x, y, ATLAS_ALIGN_LEFT, t->text_dim,
                       atlas_str(ATLAS_STR_FM_EMPTY));
 
-    last = st->top + FM_VISIBLE;
+    last = st->top + fm_visible();
     if (last > st->count)
         last = st->count;
 

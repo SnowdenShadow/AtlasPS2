@@ -198,10 +198,10 @@ static void draw_frame(void)
 
     atlas_ui_header(ATLAS_VERSION_STRING);
 
-    y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
+    y = atlas_ui_content_y();
     atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text,
                         atlas_str(ATLAS_STR_INS_TITLE));
-    y += lh * 2.2f;
+    y = atlas_ui_content_y_titled();
 
     for (i = 0; i < ATLAS_STEP_COUNT; i++) {
         atlas_install_step_state_t s = st->job.state[i];

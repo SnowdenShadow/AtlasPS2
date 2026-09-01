@@ -61,6 +61,7 @@ EE_SRC = \
 	src/device/device.c \
 	src/ui/font.c \
 	src/ui/theme.c \
+	src/ui/layout.c \
 	src/ui/ui.c \
 	src/ui/screen.c \
 	src/ui/screen_install_run.c \

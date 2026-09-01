@@ -231,10 +231,10 @@ static void wiz_draw(atlas_screen_t *self)
 
     atlas_ui_header(NULL);
 
-    y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
+    y = atlas_ui_content_y();
     atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text,
                         atlas_str(ATLAS_STR_WIZ_TITLE));
-    y += atlas_ui_line_height() * 1.8f;
+    y = atlas_ui_content_y_titled();
 
     atlas_ui_text_clipped(x, y, t->text_dim, atlas_str(ATLAS_STR_WIZ_INTRO),
                           sw - (float)ATLAS_UI_PAD * 2.0f);

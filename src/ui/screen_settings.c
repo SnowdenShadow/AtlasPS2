@@ -53,7 +53,16 @@
  * application list does: Down past the bottom must give the next row,
  * not a new page starting on the one already selected.
  */
-#define SET_VISIBLE 8
+/*
+ * Rows are counted at draw time rather than fixed: see the note in
+ * screen_apps.c. The reserve is the selected row's description plus the
+ * status line, which appears after a save or a reset.
+ */
+static int set_visible(void)
+{
+    return atlas_ui_rows_fit(atlas_ui_content_y(),
+                             atlas_ui_line_height() * 3.0f);
+}
 
 /* ------------------------------------------------------------------ */
 /* Rows                                                                */
@@ -667,8 +676,8 @@ static void set_update(atlas_screen_t *self)
      */
     if (st->cursor < st->top)
         st->top = st->cursor;
-    if (st->cursor >= st->top + SET_VISIBLE)
-        st->top = st->cursor - SET_VISIBLE + 1;
+    if (st->cursor >= st->top + set_visible())
+        st->top = st->cursor - set_visible() + 1;
     if (st->top > 0 && st->top == st->cursor
         && s_entries[st->top - 1].kind == K_HEAD)
         st->top--;
@@ -809,12 +818,10 @@ static void set_draw(atlas_screen_t *self)
 
     atlas_ui_header(atlas_str(ATLAS_STR_HOME_SETTINGS));
 
-    y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
-    atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text,
-                        atlas_str(ATLAS_STR_HOME_SETTINGS));
-    y += lh * 1.9f;
+    y = atlas_ui_content_y();
+    y = atlas_ui_content_y();
 
-    last = st->top + SET_VISIBLE;
+    last = st->top + set_visible();
     if (last > R_COUNT)
         last = R_COUNT;
 

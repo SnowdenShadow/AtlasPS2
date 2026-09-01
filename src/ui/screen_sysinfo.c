@@ -44,20 +44,66 @@
 
 #define COL_GAP 24.0f
 
-/* Rows are tighter than a menu's: this is a table to read, not a list
- * to move a cursor through. */
-#define ROW_SPACING 1.28f
+/*
+ * Rows are tighter than a menu's: this is a table to read, not a list
+ * to move a cursor through.
+ *
+ * The spacing is computed rather than fixed, because this screen cannot
+ * scroll. Every other list here drops rows it has no room for; this one
+ * has to show all of them or it stops being the screen you read out to
+ * someone helping you. A constant is right for exactly one font size
+ * and one video mode, and wrong silently - the rows it cannot fit are
+ * drawn over the footer, which is where the eight-row column below
+ * ended up when the UI font grew from 16 px to 20.
+ *
+ * So: the roomy spacing when there is room, and whatever fits when
+ * there is not.
+ */
+#define ROW_SPACING_MAX 1.28f
+
+/* The taller of the two columns: two headings, one gap between the
+ * sections, and eight rows (three storage, five modules). */
+#define COL_ROWS_MAX    8
+
+static float heading_h(void)
+{
+    return atlas_ui_line_height() * (0.95f + 0.55f);
+}
+
+static float section_gap(void)
+{
+    return atlas_ui_line_height() * 0.6f;
+}
+
+static float row_spacing(void)
+{
+    float lh    = atlas_ui_line_height();
+    float top   = atlas_ui_content_y();
+    float floor_y = (float)atlas_video_safe_h() - (float)ATLAS_UI_FOOTER_H;
+
+    /* What the eight rows may occupy once the chrome has taken its
+     * share. The last row's own text still has to fit inside it, hence
+     * subtracting a line height rather than stopping at the footer. */
+    float room = (floor_y - lh) - top - heading_h() * 2.0f - section_gap();
+    float fit  = room / (float)(COL_ROWS_MAX - 1);
+
+    if (fit > lh * ROW_SPACING_MAX)
+        fit = lh * ROW_SPACING_MAX;
+
+    /* A field too small for even single-spaced rows is not a field this
+     * screen can be honest on, but it must still not draw backwards. */
+    return fit < lh ? lh : fit;
+}
 
 static void row(float x, float *y, float w, const char *label,
                 const char *value, u64 value_color)
 {
     const atlas_theme_t *t = atlas_theme();
-    float lh = atlas_ui_line_height();
 
     atlas_ui_text(x, *y, ATLAS_ALIGN_LEFT, t->text_dim, label);
     atlas_ui_text(x + w, *y, ATLAS_ALIGN_RIGHT, value_color, value);
 
-    *y += lh * ROW_SPACING;
+    *y += row_spacing();
 }
 
 static void status_row(float x, float *y, float w, const char *label, int ok)
@@ -78,7 +124,7 @@ static void heading(float x, float *y, float w, const char *text)
     *y += lh * 0.95f;
 
     atlas_ui_separator(x, *y, w, t->separator);
-    *y += lh * 0.55f;
+    *y += lh * 0.55f;   /* the two together are heading_h() */
 }
 
 /* ------------------------------------------------------------------ */
@@ -178,17 +224,13 @@ static void sysinfo_draw(atlas_screen_t *self)
     float full = sw - (float)ATLAS_UI_PAD * 2.0f;
     float w = (full - COL_GAP) * 0.5f;
     float x2 = x + w + COL_GAP;
-    float top, y, y2;
+    float y, y2;
     char buf[64];
 
     atlas_ui_header(atlas_str(ATLAS_STR_HOME_SYSINFO));
 
-    y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
-    atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text,
-                        atlas_str(ATLAS_STR_HOME_SYSINFO));
-    y += atlas_ui_line_height() * 2.0f;
+    y = atlas_ui_content_y();
 
-    top = y;
     y2 = y;
 
     /* ---- Left: the program and the picture ---- */
@@ -212,7 +254,7 @@ static void sysinfo_draw(atlas_screen_t *self)
     row(x, &y, w, atlas_str(ATLAS_STR_SYS_BUILD_DATE), build_date(),
         t->text_dim);
 
-    y += atlas_ui_line_height() * 0.6f;
+    y += section_gap();
 
     heading(x, &y, w, atlas_str(ATLAS_STR_SYS_H_NETWORK));
 
@@ -233,7 +275,7 @@ static void sysinfo_draw(atlas_screen_t *self)
     device_row(x2, &y2, w, ATLAS_DEV_MC1, buf, sizeof(buf));
     device_row(x2, &y2, w, ATLAS_DEV_MASS, buf, sizeof(buf));
 
-    y2 += atlas_ui_line_height() * 0.6f;
+    y2 += section_gap();
 
     heading(x2, &y2, w, atlas_str(ATLAS_STR_SYS_H_MODULES));
 
@@ -244,8 +286,6 @@ static void sysinfo_draw(atlas_screen_t *self)
     status_row(x2, &y2, w, "mcman / mcserv", st->memcard);
     status_row(x2, &y2, w, "bdm / bdmfs_fatfs", st->usb);
     status_row(x2, &y2, w, "poweroff", st->poweroff);
-
-    ATLAS_UNUSED(top);
 
     snprintf(buf, sizeof(buf), "O  %s", atlas_str(ATLAS_STR_BACK));
     atlas_ui_footer(buf);

@@ -8,6 +8,7 @@
 #include <gsKit.h>
 #include <kernel.h>
 #include <libpad.h>
+#include <delaythread.h>
 
 #include "atlas/atlas.h"
 #include "atlas/boot.h"
@@ -38,7 +39,15 @@
 
 #define RGB(r, g, b) GS_SETREG_RGBAQ((r), (g), (b), 0x80, 0x00)
 
-#define COL_BG       RGB(0x12, 0x14, 0x18)
+/*
+ * The background broken out into components as well as a packed colour:
+ * the splash fades by interpolating towards it, which needs the parts.
+ */
+#define BG_R 0x12
+#define BG_G 0x14
+#define BG_B 0x18
+
+#define COL_BG       RGB(BG_R, BG_G, BG_B)
 #define COL_TEXT     RGB(0xE8, 0xEA, 0xED)
 #define COL_DIM      RGB(0x8A, 0x90, 0x99)
 #define COL_ACCENT   RGB(0x4A, 0x9E, 0xFF)
@@ -52,8 +61,22 @@
 /* escaped. Both are held while the console powers on.                 */
 /* ------------------------------------------------------------------ */
 
-#define HOTKEY_POLL_FRAMES 60 /* ~1 s: long enough to catch a hold that
-                               * started before the pad was ready */
+/*
+ * How long to keep sampling for a held hotkey, in microseconds, and how
+ * long to pause between samples.
+ *
+ * This used to be a count of sixty "frames" taken before video existed,
+ * which meant no frames and no waiting: the whole loop elapsed in
+ * microseconds and could not observe a pad that had not finished
+ * negotiating. Time is what was meant, so time is what is counted.
+ *
+ * atlas_input_init() has already waited for the pad to become ready by
+ * the time this runs, so this window is only about giving a human hand
+ * time to be seen - a quarter of a second, sampled every few
+ * milliseconds.
+ */
+#define HOTKEY_WINDOW_US   250000
+#define HOTKEY_INTERVAL_US   4000
 
 typedef struct {
     int recovery;   /* L1 + R1: minimal UI, no theme, no config      */
@@ -63,14 +86,15 @@ typedef struct {
 static boot_hotkeys_t read_hotkeys(void)
 {
     boot_hotkeys_t keys = {0, 0};
-    int i;
+    int waited;
 
     /*
-     * libpad needs a few frames to bring the port up, and the user is
-     * holding the buttons the whole time, so we sample repeatedly and
-     * latch anything we see rather than testing once and missing it.
+     * Sample repeatedly and latch anything seen, rather than testing
+     * once: the user is holding the buttons across the whole window,
+     * and a single sample can land in the gap between two IOP updates.
      */
-    for (i = 0; i < HOTKEY_POLL_FRAMES; i++) {
+    for (waited = 0; waited < HOTKEY_WINDOW_US;
+         waited += HOTKEY_INTERVAL_US) {
         u16 raw;
 
         atlas_input_update();
@@ -83,6 +107,8 @@ static boot_hotkeys_t read_hotkeys(void)
 
         if (keys.recovery)
             break; /* recovery wins; no point sampling further */
+
+        DelayThread(HOTKEY_INTERVAL_US);
     }
 
     /* Recovery implies safe video: it must come up on any TV. */
@@ -106,64 +132,136 @@ static void draw_centered(atlas_font_t *font, float y, u64 color,
     atlas_font_draw(font, x, y, color, text);
 }
 
+/*
+ * Splash timing, in frames. Interlaced NTSC and PAL differ (60 vs 50),
+ * so this is a little longer on an NTSC console and a little shorter on
+ * a PAL one; nobody can tell, and the alternative is a timer dependency
+ * for something whose only requirement is "about a second and a half".
+ */
+#define SPLASH_FRAMES     90
+#define SPLASH_FADE_IN    12
+#define SPLASH_FADE_OUT   14
+
 /**
- * Boot splash: prove the whole stack works end to end - IOP modules,
- * GS, pad, font - and report what came up, so a console where (say) USB
- * failed shows why instead of silently lacking a device.
+ * Scale a colour's RGB towards the background by a 0..1 factor.
  *
- * Drawn before the theme and the screen stack exist, using the font
- * directly, so that a failure between here and the Home screen still
- * leaves something on screen.
+ * The GS blends against what is already in the framebuffer, and the
+ * splash draws over a cleared background rather than compositing, so a
+ * fade is done by moving the colour itself rather than by changing
+ * alpha - which on this hardware would need a blend mode the rest of
+ * the frame does not use.
+ */
+static u64 fade_color(u64 color, float f)
+{
+    u32 r = (u32)((color >>  0) & 0xFF);
+    u32 g = (u32)((color >>  8) & 0xFF);
+    u32 b = (u32)((color >> 16) & 0xFF);
+
+    if (f < 0.0f) f = 0.0f;
+    if (f > 1.0f) f = 1.0f;
+
+    r = (u32)(BG_R + ((float)r - BG_R) * f);
+    g = (u32)(BG_G + ((float)g - BG_G) * f);
+    b = (u32)(BG_B + ((float)b - BG_B) * f);
+
+    return GS_SETREG_RGBAQ(r, g, b, 0x80, 0x00);
+}
+
+/**
+ * Boot splash: the program's name, its version, and nothing else.
+ *
+ * It used to list which IOP modules had loaded and wait for a button.
+ * That is a developer's diagnostic screen, shown to every user on every
+ * boot, gating the console behind a keypress to read something they did
+ * not ask for - and the same information is in Settings, where somebody
+ * looking for it can find it. What a boot splash owes the user is proof
+ * the console is alive, briefly, and then the interface.
+ *
+ * So it fades in, holds, fades out, and returns on its own. Any button
+ * skips the rest, because a splash nobody can dismiss is the same
+ * mistake in the other direction.
+ *
+ * A boot that is not normal still gets a word: recovery and safe video
+ * are states the user chose with a button held at power-on, and one of
+ * them is how somebody escapes a console that will not display. Leaving
+ * that unsaid would mean the escape hatch works silently, which is
+ * indistinguishable from it not working.
+ *
+ * Drawn with the fonts directly rather than through the UI layer: this
+ * runs before the theme is read, and it must survive a theme that is
+ * missing or broken.
  */
 static void splash_loop(atlas_font_t *title, atlas_font_t *ui,
                         const atlas_boot_status_t *st,
                         const boot_hotkeys_t *keys)
 {
-    int line_h = atlas_font_line_height(ui);
-    char buf[96];
+    int frame;
+    float cy, half_h, scale;
 
-    for (;;) {
-        float y;
+    (void)st; /* module status belongs in Settings, not on a splash */
+
+    /*
+     * Two coordinate systems meet here. draw_centered() works in
+     * framebuffer pixels, atlas_ui_rect() in safe-area units that it
+     * scales itself for 16:9 - so the rule's geometry is divided by
+     * that scale to land under a title placed in the other system.
+     */
+    scale  = atlas_video_x_scale();
+    half_h = (float)atlas_video_safe_h() * 0.5f;
+    cy     = (float)atlas_video_safe_y() + half_h;
+
+    for (frame = 0; frame < SPLASH_FRAMES; frame++) {
+        float f = 1.0f;
+        float rule_w;
 
         atlas_input_update();
 
-        if (atlas_input_is_pressed(ATLAS_BTN_CONFIRM))
+        /*
+         * Any button, not CONFIRM specifically. This screen asks for
+         * nothing, so there is no answer to give - a user pressing
+         * something wants it gone, whichever button they reached for.
+         *
+         * Read as "held", not as an edge: a user who was already
+         * holding a button when the splash appeared - which is exactly
+         * what happens when they held R1 for safe video - would
+         * otherwise have to release it and press again.
+         */
+        if (frame > SPLASH_FADE_IN && atlas_input_held() != 0)
             break;
+
+        if (frame < SPLASH_FADE_IN)
+            f = (float)frame / (float)SPLASH_FADE_IN;
+        else if (frame > SPLASH_FRAMES - SPLASH_FADE_OUT)
+            f = (float)(SPLASH_FRAMES - frame) / (float)SPLASH_FADE_OUT;
 
         atlas_video_frame_begin(COL_BG);
 
-        y = (float)atlas_video_safe_y();
+        /*
+         * Name, a hairline, then the version under it. The rule is as
+         * wide as the title and sits between the two, which is what
+         * makes the pair read as one object rather than two strings
+         * that happen to share a centre.
+         */
+        draw_centered(title, cy - 34.0f, fade_color(COL_TEXT, f),
+                      ATLAS_NAME);
 
-        draw_centered(title, y + 40.0f, COL_TEXT, ATLAS_NAME);
-        draw_centered(ui, y + 76.0f, COL_ACCENT, ATLAS_VERSION_STRING);
+        rule_w = atlas_font_width(title, ATLAS_NAME) / scale;
+        atlas_ui_rect(((float)atlas_video_safe_w() / scale - rule_w) * 0.5f,
+                      half_h + 4.0f, rule_w, 1.0f,
+                      fade_color(COL_ACCENT, f * 0.7f));
 
-        y += 130.0f;
-
-        snprintf(buf, sizeof(buf), "Video : %s", atlas_video_mode_name());
-        atlas_font_draw(ui, (float)atlas_video_safe_x(), y, COL_DIM, buf);
-        y += (float)line_h;
-
-        snprintf(buf, sizeof(buf),
-                 "Modules : file %s | pad %s | mc %s | usb %s",
-                 st->fileio ? "ok" : "--",
-                 st->pad ? "ok" : "--",
-                 st->memcard ? "ok" : "--",
-                 st->usb ? "ok" : "--");
-        atlas_font_draw(ui, (float)atlas_video_safe_x(), y, COL_DIM, buf);
-        y += (float)line_h;
+        draw_centered(ui, cy + 16.0f, fade_color(COL_DIM, f),
+                      ATLAS_VERSION_STRING);
 
         if (keys->recovery || keys->safe_video) {
-            atlas_font_draw(ui, (float)atlas_video_safe_x(), y, COL_WARN,
-                            keys->recovery ? "Recovery mode"
-                                           : "Safe video mode");
-            y += (float)line_h;
+            draw_centered(ui,
+                          (float)(atlas_video_safe_y()
+                                  + atlas_video_safe_h())
+                              - atlas_font_line_height(ui) * 2.0f,
+                          fade_color(COL_WARN, f),
+                          keys->recovery ? "Recovery mode"
+                                         : "Safe video mode");
         }
-
-        draw_centered(ui,
-                      (float)(atlas_video_safe_y() + atlas_video_safe_h())
-                          - (float)line_h * 2.0f,
-                      COL_TEXT,
-                      "Press X to continue");
 
         atlas_video_frame_end();
     }

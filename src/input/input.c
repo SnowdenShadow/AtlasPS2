@@ -6,6 +6,7 @@
 
 #include <kernel.h>
 #include <libpad.h>
+#include <delaythread.h>
 
 #include "atlas/input.h"
 #include "atlas/log.h"
@@ -96,10 +97,62 @@ static u32 map_buttons(u16 raw)
 /* Lifecycle                                                           */
 /* ------------------------------------------------------------------ */
 
+/*
+ * How long to wait for a freshly opened port to produce a usable pad.
+ *
+ * libpad.h says, of padGetState(): "Wait until state == 6 (Ready) before
+ * trying to access the pad", and the SDK's own sample waits in an
+ * unbounded loop. Unbounded is wrong here: a port with nothing plugged
+ * into it never leaves DISCONN, and hanging the boot because the user
+ * has no controller in slot 2 is not an option.
+ *
+ * So it is bounded in TIME rather than in iterations. An iteration count
+ * is not a duration - that mistake is what made the pad never come up in
+ * the first place, because sixty passes over a two-instruction loop
+ * elapse in microseconds while a DualShock needs tens of milliseconds.
+ */
+#define ATLAS_PAD_READY_TIMEOUT_US 1500000
+#define ATLAS_PAD_POLL_INTERVAL_US 2000
+
+/**
+ * Wait for one port to reach a state in which padRead() returns real
+ * button data, or for the timeout to expire.
+ *
+ * FINDCTP1 is accepted alongside STABLE because the SDK sample accepts
+ * it: a digital pad settles there and never reaches STABLE at all.
+ *
+ * @return 1 if the pad is usable, 0 if it never became ready.
+ */
+static int wait_port_ready(int port)
+{
+    int waited;
+
+    for (waited = 0; waited < ATLAS_PAD_READY_TIMEOUT_US;
+         waited += ATLAS_PAD_POLL_INTERVAL_US) {
+        int state = padGetState(port, 0);
+
+        if (state == PAD_STATE_STABLE || state == PAD_STATE_FINDCTP1)
+            return 1;
+
+        /*
+         * DISCONN is the answer for an empty port, and it is a final
+         * one: there is nothing to wait for, so do not spend the
+         * timeout discovering that twice.
+         */
+        if (state == PAD_STATE_DISCONN)
+            return 0;
+
+        DelayThread(ATLAS_PAD_POLL_INTERVAL_US);
+    }
+
+    return 0;
+}
+
 atlas_err_t atlas_input_init(void)
 {
     int port;
     int opened = 0;
+    int ready = 0;
 
     if (s_initialised)
         return ATLAS_OK;
@@ -127,8 +180,25 @@ atlas_err_t atlas_input_init(void)
         return ATLAS_ENODEV;
     }
 
+    /*
+     * Opening a port is not the same as having a pad on it. Negotiation
+     * takes real time, and until it finishes padRead() reports nothing
+     * pressed - which looks exactly like a user who is not pressing
+     * anything, and is why every button appeared dead.
+     *
+     * A port that never becomes ready is left open regardless: a pad
+     * plugged in later still arrives through the ordinary per-frame
+     * poll, and refusing to open the port would make hot-plug
+     * impossible.
+     */
+    for (port = 0; port < ATLAS_PAD_PORTS; port++) {
+        if (s_port[port].open && wait_port_ready(port))
+            ready++;
+    }
+
     s_initialised = 1;
-    ATLAS_LOG("PAD", "initialised, %d port(s)", opened);
+    ATLAS_LOG("PAD", "initialised, %d port(s) open, %d ready",
+              opened, ready);
     return ATLAS_OK;
 }
 

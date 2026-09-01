@@ -88,6 +88,46 @@ float atlas_ui_text_width(const char *text);
 float atlas_ui_line_height(void);
 
 /* ------------------------------------------------------------------ */
+/* Layout                                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The y at which a screen's content starts, just below the header.
+ *
+ * Every screen computed this itself from the same two constants, and a
+ * screen that got one of them wrong drew its first row under the bar.
+ */
+float atlas_ui_content_y(void);
+
+/**
+ * The y at which content starts on a screen that draws a title first,
+ * and the y to draw that title at is atlas_ui_content_y().
+ */
+float atlas_ui_content_y_titled(void);
+
+/**
+ * How many rows of ATLAS_UI_ROW_H fit between `top` and the footer,
+ * given `reserve` safe-area units kept free below the list (a position
+ * counter, a selected-item path, a hint).
+ *
+ * Screens used to carry this as a hand-counted constant - eight or nine
+ * depending on the screen - decided when the field was 448 lines and
+ * the rows were smaller. PAL gives 512 lines and could show more; a
+ * larger row height means fewer fit; and neither was noticed, because
+ * a list that overflows does not fail, it draws its last rows on top of
+ * the footer.
+ *
+ * `top` is passed rather than assumed: a screen that draws a title or a
+ * path first starts its list a title's height lower, and assuming the
+ * unindented start reintroduces the same overflow one line at a time.
+ * Pass whichever of atlas_ui_content_y() / atlas_ui_content_y_titled()
+ * the screen actually draws its first row at.
+ *
+ * @return at least 1, so a caller can always draw the cursor's row.
+ */
+int atlas_ui_rows_fit(float top, float reserve);
+
+/* ------------------------------------------------------------------ */
 /* Chrome                                                              */
 /* ------------------------------------------------------------------ */
 

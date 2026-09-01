@@ -40,7 +40,16 @@
 #include "atlas/device.h"
 #include "atlas/i18n.h"
 
-#define GAMES_VISIBLE 8
+/*
+ * Rows are counted at draw time rather than fixed: see the note in
+ * screen_apps.c. The reserve covers the selected image's path and the
+ * position counter under the list.
+ */
+static int games_visible(void)
+{
+    return atlas_ui_rows_fit(atlas_ui_content_y(),
+                             atlas_ui_line_height() * 2.6f);
+}
 
 typedef enum {
     GS_LIST = 0,   /* browsing                                   */
@@ -165,8 +174,8 @@ static void update_list(games_state_t *st)
 
     if (st->cursor < st->top)
         st->top = st->cursor;
-    if (st->cursor >= st->top + GAMES_VISIBLE)
-        st->top = st->cursor - GAMES_VISIBLE + 1;
+    if (st->cursor >= st->top + games_visible())
+        st->top = st->cursor - games_visible() + 1;
 
     if (atlas_input_is_pressed(ATLAS_BTN_CONFIRM))
         choose(st);
@@ -370,10 +379,8 @@ static void games_draw(atlas_screen_t *self)
 
     atlas_ui_header(atlas_str(ATLAS_STR_HOME_GAMES));
 
-    y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
-    atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text,
-                        atlas_str(ATLAS_STR_HOME_GAMES));
-    y += lh * 2.2f;
+    y = atlas_ui_content_y();
+    y = atlas_ui_content_y();
 
     if (n == 0) {
         draw_empty(x, y, w);
@@ -387,7 +394,7 @@ static void games_draw(atlas_screen_t *self)
         return;
     }
 
-    last = st->top + GAMES_VISIBLE;
+    last = st->top + games_visible();
     if (last > n)
         last = n;
 
@@ -399,8 +406,12 @@ static void games_draw(atlas_screen_t *self)
         if (!g)
             continue;
 
-        atlas_ui_panel(x, y, w, (float)ATLAS_UI_ROW_H,
-                       selected ? t->panel_selected : t->panel);
+        /* Only the cursor gets a slab; see the note in ui.c. */
+        if (selected) {
+            atlas_ui_panel(x, y, w, (float)ATLAS_UI_ROW_H,
+                           t->panel_selected);
+            atlas_ui_rect(x, y, 3.0f, (float)ATLAS_UI_ROW_H, t->accent);
+        }
 
         row_y = y + ((float)ATLAS_UI_ROW_H - lh) * 0.5f;
 
@@ -423,7 +434,7 @@ static void games_draw(atlas_screen_t *self)
         y += (float)(ATLAS_UI_ROW_H + ATLAS_UI_ROW_GAP);
     }
 
-    if (n > GAMES_VISIBLE) {
+    if (n > games_visible()) {
         char pos[32];
 
         snprintf(pos, sizeof(pos), "%d / %d", st->cursor + 1, n);

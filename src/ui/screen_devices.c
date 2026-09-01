@@ -67,10 +67,8 @@ static void devices_draw(atlas_screen_t *self)
 
     atlas_ui_header(atlas_str(ATLAS_STR_HOME_DEVICES));
 
-    y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
-    atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text,
-                        atlas_str(ATLAS_STR_HOME_DEVICES));
-    y += lh * 2.2f;
+    y = atlas_ui_content_y();
+    y = atlas_ui_content_y();
 
     for (i = 0; i < ATLAS_DEV_COUNT; i++) {
         const atlas_device_t *d = atlas_device_get((atlas_device_id_t)i);
@@ -79,8 +77,13 @@ static void devices_draw(atlas_screen_t *self)
         if (!d)
             continue;
 
-        atlas_ui_panel(x, y, w, (float)ATLAS_UI_ROW_H, t->panel);
-
+        /*
+         * A rule under each row rather than a slab behind it. This
+         * screen has no cursor - it is a table you read, not a list you
+         * move through - and a slab is the interface's way of saying
+         * "this one is selected". Drawing one behind every row says it
+         * about all of them, which is the same as saying nothing.
+         */
         row_y = y + ((float)ATLAS_UI_ROW_H - lh) * 0.5f;
 
         atlas_ui_text(x + (float)ATLAS_UI_PAD, row_y, ATLAS_ALIGN_LEFT,
@@ -122,6 +125,11 @@ static void devices_draw(atlas_screen_t *self)
                                   d->detail, w - (float)ATLAS_UI_PAD * 2.0f);
             y += lh + (float)ATLAS_UI_ROW_GAP;
         }
+
+        /* The rule goes after the detail line, so it separates devices
+         * rather than cutting one in half. */
+        atlas_ui_separator(x, y, w, t->separator);
+        y += (float)ATLAS_UI_ROW_GAP * 2.0f;
     }
 
     {

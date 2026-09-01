@@ -86,12 +86,25 @@ typedef struct {
 /* are in framebuffer pixels, before the 16:9 x-scale is applied.      */
 /* ------------------------------------------------------------------ */
 
-#define ATLAS_UI_HEADER_H    34
-#define ATLAS_UI_FOOTER_H    28
-#define ATLAS_UI_PAD         16   /* gap between the safe edge and content */
-#define ATLAS_UI_ROW_H       32   /* one menu row                          */
-#define ATLAS_UI_ROW_GAP     4
-#define ATLAS_UI_CORNER      4    /* notch size of the faux-rounded panel  */
+#define ATLAS_UI_HEADER_H    38
+#define ATLAS_UI_FOOTER_H    32
+#define ATLAS_UI_PAD         20   /* gap between the safe edge and content */
+#define ATLAS_UI_ROW_H       36   /* one menu row                          */
+#define ATLAS_UI_ROW_GAP     5
+#define ATLAS_UI_CORNER      5    /* notch size of the faux-rounded panel  */
+
+/*
+ * How far a screen that draws a title pushes its content down, as a
+ * multiple of the UI line height.
+ *
+ * Most screens no longer draw one. A screen whose header bar already
+ * names it was spending a whole row restating that name in a larger
+ * font, on a field that has ten rows in it - so the header keeps the
+ * name and the big title is gone. What remains are the screens whose
+ * title says something the bar does not: the wizard, Recovery, the
+ * installer, and Home's greeting.
+ */
+#define ATLAS_UI_TITLE_H     2.0f
 
 /** The compiled-in theme. Never NULL, never changes. */
 const atlas_theme_t *atlas_theme_builtin(void);

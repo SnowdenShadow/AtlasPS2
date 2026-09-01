@@ -377,10 +377,10 @@ static void rec_draw(atlas_screen_t *self)
 
     atlas_ui_header(ATLAS_VERSION_STRING);
 
-    y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
+    y = atlas_ui_content_y();
     atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->warn,
                         atlas_str(ATLAS_STR_REC_TITLE));
-    y += lh * 1.8f;
+    y = atlas_ui_content_y_titled();
 
     /* Says why the console looks like this before it says what can be
      * done about it: a user who held two buttons by accident needs to

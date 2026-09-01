@@ -44,9 +44,9 @@ static void todo_draw(atlas_screen_t *self)
 
     atlas_ui_header(st->title);
 
-    y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
+    y = atlas_ui_content_y();
     atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text, st->title);
-    y += atlas_ui_line_height() * 2.2f;
+    y = atlas_ui_content_y_titled();
 
     if (st->detail) {
         atlas_ui_text_clipped(x, y, t->text_dim, st->detail, w);

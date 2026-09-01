@@ -1,6 +1,6 @@
 /*
  * AtlasPS2 - generated font atlas: title
- * Source face: DejaVuSans-Bold.ttf at 24 px
+ * Source face: DejaVuSans-Bold.ttf at 28 px
  *
  * GENERATED FILE - do not edit. Regenerate with tools/genfont.py.
  */

@@ -42,7 +42,7 @@ install from without ever opening this repository. Full instructions,
 including a native toolchain setup, are in
 [docs/BUILD.md](docs/BUILD.md).
 
-`make check` runs the host self-checks — seventeen suites over the
+`make check` runs the host self-checks — eighteen suites over the
 pure-data half of every module that has one. They need no PS2 toolchain
 and take about a second.
 

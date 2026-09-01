@@ -7,6 +7,7 @@
 #include <gsKit.h>
 
 #include "atlas/ui.h"
+#include "atlas/layout.h"
 #include "atlas/video.h"
 #include "atlas/atlas.h"
 
@@ -196,6 +197,32 @@ float atlas_ui_line_height(void)
 }
 
 /* ------------------------------------------------------------------ */
+/* Layout                                                              */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Thin wrappers: the arithmetic itself is in layout.c, which takes the
+ * field height and the font metric as arguments so `make check` can run
+ * it. These supply the live values.
+ */
+
+float atlas_ui_content_y(void)
+{
+    return atlas_ui_layout_content_y();
+}
+
+float atlas_ui_content_y_titled(void)
+{
+    return atlas_ui_layout_content_y_titled(atlas_ui_line_height());
+}
+
+int atlas_ui_rows_fit(float top, float reserve)
+{
+    return atlas_ui_layout_rows_fit(top, reserve,
+                                    (float)atlas_video_safe_h());
+}
+
+/* ------------------------------------------------------------------ */
 /* Chrome                                                              */
 /* ------------------------------------------------------------------ */
 
@@ -271,6 +298,17 @@ void atlas_ui_menu_row(float x, float y, float w, int selected,
     float text_x = x + (float)ATLAS_UI_PAD;
     float label_max = w - (float)ATLAS_UI_PAD * 2.0f;
 
+    /*
+     * Only the selected row is drawn as a slab.
+     *
+     * Every row used to get one, and a screenful of them reads as a wall
+     * of boxes with the cursor lost somewhere inside it: when the
+     * difference between "selected" and "not" is two dark blues a shade
+     * apart, on a television, from a sofa, there is effectively no
+     * cursor at all. Leaving the unselected rows as text on the
+     * background gives the highlight the whole contrast range to itself,
+     * and the list its space back.
+     */
     if (selected) {
         atlas_ui_panel(x, y, w, (float)ATLAS_UI_ROW_H, t->panel_selected);
 
@@ -280,8 +318,6 @@ void atlas_ui_menu_row(float x, float y, float w, int selected,
          * while a vertical one is rock steady.
          */
         atlas_ui_rect(x, y, 3.0f, (float)ATLAS_UI_ROW_H, t->accent);
-    } else {
-        atlas_ui_panel(x, y, w, (float)ATLAS_UI_ROW_H, t->panel);
     }
 
     if (value) {

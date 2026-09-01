@@ -32,8 +32,22 @@
  * The list scrolls rather than paginates: a user pressing Down past the
  * bottom expects the next item, not a new page whose first row is the
  * one they were already on.
+ *
+ * How many rows fit is asked of the layout rather than fixed here. It
+ * depends on the field height, which differs between NTSC and PAL, and
+ * on the row height, which is a theme metric - so a constant is right
+ * for exactly one combination and silently wrong for the others, in the
+ * direction that draws the last rows over the footer.
+ *
+ * The reserve is the selected application's path plus the position
+ * counter, both drawn below the list.
  */
-#define APPS_VISIBLE 8
+#define APPS_RESERVE (atlas_ui_line_height() * 2.6f)
+
+static int apps_visible(void)
+{
+    return atlas_ui_rows_fit(atlas_ui_content_y(), APPS_RESERVE);
+}
 
 /*
  * Room for every application plus the three headings. The catalogue is
@@ -306,8 +320,8 @@ static void apps_update(atlas_screen_t *self)
      */
     if (st->cursor < st->top)
         st->top = st->cursor;
-    if (st->cursor >= st->top + APPS_VISIBLE)
-        st->top = st->cursor - APPS_VISIBLE + 1;
+    if (st->cursor >= st->top + apps_visible())
+        st->top = st->cursor - apps_visible() + 1;
     if (st->top > 0 && st->top == st->cursor
         && row_is_heading(&st->rows[st->top - 1]))
         st->top--;
@@ -453,10 +467,8 @@ static void apps_draw(atlas_screen_t *self)
 
     atlas_ui_header(atlas_str(ATLAS_STR_HOME_APPS));
 
-    y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
-    atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text,
-                        atlas_str(ATLAS_STR_HOME_APPS));
-    y += lh * 2.2f;
+    y = atlas_ui_content_y();
+    y = atlas_ui_content_y();
 
     if (st->row_count == 0) {
         draw_empty(x, y, w);
@@ -470,7 +482,7 @@ static void apps_draw(atlas_screen_t *self)
         return;
     }
 
-    last = st->top + APPS_VISIBLE;
+    last = st->top + apps_visible();
     if (last > st->row_count)
         last = st->row_count;
 
@@ -501,8 +513,12 @@ static void apps_draw(atlas_screen_t *self)
 
         selected = (i == st->cursor);
 
-        atlas_ui_panel(x, y, w, (float)ATLAS_UI_ROW_H,
-                       selected ? t->panel_selected : t->panel);
+        /* Only the cursor gets a slab; see the note in ui.c. */
+        if (selected) {
+            atlas_ui_panel(x, y, w, (float)ATLAS_UI_ROW_H,
+                           t->panel_selected);
+            atlas_ui_rect(x, y, 3.0f, (float)ATLAS_UI_ROW_H, t->accent);
+        }
 
         row_y = y + ((float)ATLAS_UI_ROW_H - lh) * 0.5f;
 
@@ -532,7 +548,7 @@ static void apps_draw(atlas_screen_t *self)
 
     /* Position, not a scrollbar: at 640x448 a bar thin enough to look
      * right is one pixel wide and flickers on an interlaced CRT. */
-    if (st->row_count > APPS_VISIBLE) {
+    if (st->row_count > apps_visible()) {
         char pos[32];
 
         snprintf(pos, sizeof(pos), "%d / %d", st->cursor + 1,

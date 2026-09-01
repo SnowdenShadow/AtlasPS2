@@ -37,7 +37,17 @@
  * through anyway.
  */
 #define THEME_MAX     16
-#define THEME_VISIBLE 8
+
+/*
+ * Rows are counted at draw time rather than fixed: see the note in
+ * screen_apps.c. The reserve is the description line under the list,
+ * the position counter, and the "no themes found" note.
+ */
+static int theme_visible(void)
+{
+    return atlas_ui_rows_fit(atlas_ui_content_y_titled(),
+                             atlas_ui_line_height() * 3.4f);
+}
 
 /* Row 0 is the built-in theme, so a theme at list index i is row i + 1
  * and the Save row is last. */
@@ -194,8 +204,8 @@ static void theme_enter(atlas_screen_t *self)
         }
     }
 
-    if (st->cursor >= THEME_VISIBLE)
-        st->top = st->cursor - THEME_VISIBLE + 1;
+    if (st->cursor >= theme_visible())
+        st->top = st->cursor - theme_visible() + 1;
 }
 
 /**
@@ -236,8 +246,8 @@ static void theme_update(atlas_screen_t *self)
 
     if (st->cursor < st->top)
         st->top = st->cursor;
-    if (st->cursor >= st->top + THEME_VISIBLE)
-        st->top = st->cursor - THEME_VISIBLE + 1;
+    if (st->cursor >= st->top + theme_visible())
+        st->top = st->cursor - theme_visible() + 1;
 
     /* The preview. Save is not a theme, so sitting on it leaves the
      * last previewed palette alone rather than reverting it. */
@@ -266,12 +276,12 @@ static void theme_draw(atlas_screen_t *self)
 
     atlas_ui_header(atlas_video_mode_name());
 
-    y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
+    y = atlas_ui_content_y();
     atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text,
                         atlas_str(ATLAS_STR_THEME_TITLE));
-    y += lh * 1.9f;
+    y = atlas_ui_content_y_titled();
 
-    last = st->top + THEME_VISIBLE;
+    last = st->top + theme_visible();
     if (last > count)
         last = count;
 
@@ -307,7 +317,7 @@ static void theme_draw(atlas_screen_t *self)
         y += (float)(ATLAS_UI_ROW_H + ATLAS_UI_ROW_GAP);
     }
 
-    if (count > THEME_VISIBLE) {
+    if (count > theme_visible()) {
         char pos[32];
 
         snprintf(pos, sizeof(pos), "%d / %d", st->cursor + 1, count);

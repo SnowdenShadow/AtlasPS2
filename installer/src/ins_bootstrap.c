@@ -109,10 +109,10 @@ static void boot_draw(atlas_screen_t *self)
 
     atlas_ui_header(ATLAS_VERSION_STRING);
 
-    y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
+    y = atlas_ui_content_y();
     atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->warn,
                         atlas_str(ATLAS_STR_INS_BOOT_TITLE));
-    y += atlas_ui_line_height() * 2.2f;
+    y = atlas_ui_content_y_titled();
 
     wrapped(x, y, w, t->text, atlas_str(ATLAS_STR_INS_BOOT_BODY));
 

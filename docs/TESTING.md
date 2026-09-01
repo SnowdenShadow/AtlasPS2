@@ -19,17 +19,26 @@ Three lanes, in increasing cost and increasing value:
 make -C tests check
 ```
 
-Seventeen suites covering the pure-data half of every module that has
+Eighteen suites covering the pure-data half of every module that has
 one: UTF-8, paths, INI grammar, the string table, configuration,
 hashing, themes, favorites, protected paths, disc identification, LZ4,
 ZSO indexing, per-game compatibility, fragment lists, sector arithmetic,
-per-title profiles and the IOPRP module list.
+per-title profiles, the IOPRP module list, and screen layout.
 
 These exist because the modules were split for them. A theme's colours, a
 protected-path decision, a game ID, the meaning of a profile key — each
 is a value that is wrong invisibly, and each would otherwise need a
 television to check. They run in about a second and catch the class of
 mistake that costs an afternoon on hardware.
+
+`test_layout` is the newest and was written after the fact. Each list
+screen used to carry a hand-counted row constant — eight here, nine
+there — chosen against one video mode and never revisited when the row
+height grew or when PAL handed the screen sixty-four more lines. A list
+that asks for more rows than fit does not fail; it draws the extra ones
+over the footer. The suite checks the invariant rather than the number:
+for both fields and every reserve any screen uses, the last row must end
+above the footer.
 
 They are **not** a substitute for any item below. Nothing here touches
 the GS, the pad, the IOP or a filesystem.

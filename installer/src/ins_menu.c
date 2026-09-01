@@ -282,10 +282,10 @@ static void menu_draw(atlas_screen_t *self)
 
     atlas_ui_header(ATLAS_VERSION_STRING);
 
-    y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
+    y = atlas_ui_content_y();
     atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text,
                         atlas_str(ATLAS_STR_INS_TITLE));
-    y += lh * 2.0f;
+    y = atlas_ui_content_y_titled();
 
     draw_detected(st, x, y, w);
     y += lh * 5.6f;

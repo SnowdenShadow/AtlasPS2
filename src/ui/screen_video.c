@@ -429,10 +429,10 @@ static void vid_draw(atlas_screen_t *self)
 
     atlas_ui_header(atlas_video_mode_name());
 
-    y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
+    y = atlas_ui_content_y();
     atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text,
                         atlas_str(ATLAS_STR_HOME_VIDEO));
-    y += lh * 1.9f;
+    y = atlas_ui_content_y_titled();
 
     for (i = 0; i < VID_ROW_COUNT; i++) {
         atlas_ui_menu_row(x, y, w * 0.70f, i == st->cursor,

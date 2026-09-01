@@ -74,6 +74,7 @@ EE_SRC = \
 	src/ui/font.c \
 	src/ui/theme.c \
 	src/ui/theme_io.c \
+	src/ui/layout.c \
 	src/ui/ui.c \
 	src/ui/screen.c \
 	src/ui/screen_home.c \
@@ -223,10 +224,21 @@ build/irx/%_irx.o: build/irx/%_irx.c
 
 FONT_DIR ?= /usr/share/fonts/dejavu
 
+# 20 and 28 pixels, not 16 and 24.
+#
+# The first sizes were chosen against a monitor. A PS2 draws 448 visible
+# lines onto a television watched from across a room, where 16 px body
+# text is at the edge of legible and thin strokes disappear into the
+# interlace. Twenty is the smallest size that stays readable there.
+#
+# It is free: the packer chooses the smallest power-of-two sheet that
+# holds the glyphs, and 20 px packs into 512x128 where 16 px took
+# 1024x64 - the same 64 KB. The title font likewise goes from 1024x128
+# to 512x256. Neither costs a byte more of the GS's 4 MB.
 fonts:
-	python3 tools/genfont.py $(FONT_DIR)/DejaVuSans.ttf 16 \
+	python3 tools/genfont.py $(FONT_DIR)/DejaVuSans.ttf 20 \
 		src/ui/assets/font_ui --name=ui
-	python3 tools/genfont.py $(FONT_DIR)/DejaVuSans-Bold.ttf 24 \
+	python3 tools/genfont.py $(FONT_DIR)/DejaVuSans-Bold.ttf 28 \
 		src/ui/assets/font_title --name=title
 
 # ------------------------------------------------------------------ #

@@ -47,15 +47,27 @@ typedef struct {
     atlas_str_id_t detail;  /* ATLAS_STR_COUNT for none; placeholder only */
 } home_entry_t;
 
+/*
+ * Six rows, which is what the specification asks Home to contain, and
+ * also what fits.
+ *
+ * There were nine. Devices, Theme and System information were on it as
+ * well - and all three are already reachable from Settings, which is
+ * where a screen you visit once belongs. Nine rows of ATLAS_UI_ROW_H
+ * plus the greeting come to 475 lines on an NTSC field whose footer
+ * starts at 364, so the last three were drawn over the footer and the
+ * bottom of the screen; the two the user could not see were the two
+ * that duplicated Settings.
+ *
+ * Home is the screen every boot lands on. It gets the six things a
+ * user opens repeatedly, with room around them.
+ */
 static const home_entry_t s_entries[] = {
     { HOME_GO_GAMES,   ATLAS_STR_HOME_GAMES,    ATLAS_STR_HOME_D_GAMES    },
     { HOME_GO_APPS,    ATLAS_STR_HOME_APPS,     ATLAS_STR_COUNT           },
     { HOME_GO_FILES,   ATLAS_STR_HOME_FILES,    ATLAS_STR_COUNT           },
-    { HOME_GO_DEVICES, ATLAS_STR_HOME_DEVICES,  ATLAS_STR_COUNT           },
     { HOME_GO_VIDEO,   ATLAS_STR_HOME_VIDEO,    ATLAS_STR_COUNT           },
-    { HOME_GO_THEME,   ATLAS_STR_THEME_TITLE,   ATLAS_STR_COUNT           },
     { HOME_GO_SETTINGS, ATLAS_STR_HOME_SETTINGS, ATLAS_STR_HOME_D_SETTINGS },
-    { HOME_GO_SYSINFO, ATLAS_STR_HOME_SYSINFO,  ATLAS_STR_COUNT           },
     { HOME_GO_POWER,   ATLAS_STR_HOME_POWER,    ATLAS_STR_COUNT           }
 };
 
@@ -203,11 +215,11 @@ static void home_draw(atlas_screen_t *self)
     draw_indicators(sw - (float)ATLAS_UI_PAD,
                     ((float)ATLAS_UI_HEADER_H - atlas_ui_line_height()) * 0.5f);
 
-    y = (float)ATLAS_UI_HEADER_H + (float)ATLAS_UI_PAD;
+    y = atlas_ui_content_y();
 
     atlas_ui_text_title(x, y, ATLAS_ALIGN_LEFT, t->text,
                         atlas_str(ATLAS_STR_HOME_WELCOME));
-    y += atlas_ui_line_height() * 2.2f;
+    y = atlas_ui_content_y_titled();
 
     for (i = 0; i < HOME_COUNT; i++) {
         atlas_ui_menu_row(x, y, row_w, i == st->cursor,

@@ -20,7 +20,8 @@ HDRS = $(wildcard ../include/atlas/*.h host/*.h)
 
 TESTS = test_utf8 test_path test_ini test_i18n test_config test_hash \
         test_theme test_fav test_fs_path test_disc test_lz4 test_image \
-        test_compat test_frag test_sector test_profile test_btconf
+        test_compat test_frag test_sector test_profile test_btconf \
+        test_layout
 
 .PHONY: check clean images
 
@@ -76,6 +77,11 @@ test_hash: test_hash.c ../src/core/hash.c $(HDRS)
 # exactly what is wrong when a theme looks wrong, and a check that
 # needs a television is not a check.
 test_theme: test_theme.c ../src/ui/theme.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
+
+# layout.c is the row arithmetic with the screen dimensions passed in;
+# ui.c is the same arithmetic wired to gsKit and so cannot come here.
+test_layout: test_layout.c ../src/ui/layout.c $(HDRS)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c,$^)
 
 # fav.c is the lists themselves; fav_io.c reads and writes the card and
