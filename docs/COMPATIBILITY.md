@@ -163,6 +163,55 @@ alongside `__common` browsing rather than replacing it:
   same way OPL's own HDD backend does it. No filesystem is walked; the
   game's data is treated as one contiguous run of sectors, known
   entirely from the listing step above. **Never run on a console.**
+- **Identifying the game before boot.** `discboot.c`'s
+  `probe_read_hdd()` reads the raw ATA sectors that hold `SYSTEM.CNF`
+  through `fileXioDevctl("hdd0:", HDIOC_READSECTOR, ...)`, still on the
+  EE, before any IOP reset. A first hardware report from this feature
+  showed exactly one HDL entry listed (the sub-partition duplicate
+  fixed above) but a launch failure reading "L'image n'a pas pu être
+  lue." — `ATLAS_EIO`, meaning the devctl call itself failed rather
+  than returning data that did not parse. `fileXioDevctl()` DMAs both
+  its argument struct and its reply buffer over SIF; the callback was
+  passing a plain stack `hddAtaTransfer_t` and writing into the
+  caller's plain stack sector buffer, neither aligned. This project's
+  own `s_arg` (the block handed to `atlascdvd` a few lines above in the
+  same file) is 64-byte aligned for exactly this reason, and OPL's own
+  `hddReadSectors()` (`src/hdd.c`) reads `HDIOC_READSECTOR` into a
+  `u8 IOBuffer[2048] ALIGNED(64)` rather than a plain stack array —
+  two independent confirmations of the same requirement. Fixed by
+  aligning the argument struct and bouncing the read through a static
+  64-byte-aligned buffer before copying into the caller's buffer.
+  **Not yet confirmed on hardware** — this fix has not had a console
+  round-trip yet; if the same title still fails to identify after it,
+  report the exact reason text again, since it narrows down to a
+  different cause than the one just ruled out.
+- **A launch failure with no message at all.** The alignment fix above
+  was confirmed indirectly — identification now succeeds and the
+  confirm screen shows the game's own name — but pressing OK on that
+  screen returned straight to the ELF loader with no failure screen
+  shown at all, on the very first console run of the disc-boot code
+  this project has ever had (USB image boot has never been run on
+  hardware either). The cause was in `screen_games.c`, not in the HDD
+  path specifically: `update_confirm()` called
+  `atlas_screen_request_exit()` unconditionally after
+  `atlas_discboot_run()` returned, on the assumption that a return
+  from that call only ever happens after video is already shut down.
+  That is true for the module-load failures late in the function, but
+  not for its own earlier checks — a missing `BOOT2` path or an
+  `IOPBTCONF` this console's revision doesn't parse both return before
+  any teardown, with the screen still live to show a reason on, and
+  the code was exiting silently instead. Fixed by having
+  `atlas_discboot_run()`'s one truly-after-teardown failure
+  (`LoadELFFromFile` refusing the game's own ELF) return a distinct
+  code (`ATLAS_EFATAL`) from the two pre-teardown checks that used to
+  share `ATLAS_EFORMAT` with it, and having `update_confirm()` branch
+  on that: exit silently only for the post-teardown codes, show the
+  normal failure screen for everything else. **Not yet confirmed on
+  hardware** — if a reason now appears, report it exactly; if the
+  screen still returns silently, the failure is one of the
+  post-teardown ones (a drive module or the `atlascdvd` module itself
+  refusing to load) and needs a different kind of report to narrow
+  down, since nothing can be drawn for those by design.
 
 ### Why bootstrap installation is deliberately absent
 

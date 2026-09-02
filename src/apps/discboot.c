@@ -30,6 +30,7 @@
 #include <ioprpgen.h>             /* the IOPRP image it takes   */
 #include <delaythread.h>          /* DelayThread()              */
 #include <sbv_patches.h>
+#include <gsKit.h>                /* TEMPORARY: diag_halt() colour, see below */
 
 #define NEWLIB_PORT_AWARE
 #include <fileXio_rpc.h>
@@ -216,11 +217,26 @@ atlas_err_t atlas_discboot_prepare(const char *path, atlas_discboot_t *out)
 }
 
 /** atlas_disc_probe()'s read callback, over an HDL partition's raw
- *  ATA sectors - there is no open file, only a starting LBA. */
+ *  ATA sectors - there is no open file, only a starting LBA.
+ *
+ * fileXioDevctl() DMAs both its argument block and its reply buffer
+ * over SIF. s_arg above is 64-byte aligned for exactly this reason,
+ * and OPL's own HDIOC_READSECTOR caller (src/hdd.c) reads into a
+ * static buffer with the same alignment rather than a plain stack
+ * array - an unaligned side on either end is a devctl that fails, not
+ * one that reads garbage. atlas_disc_probe() only ever asks for one
+ * sector at a time, so a single aligned bounce buffer covers every
+ * call; the caller's own buf (disc.c's stack-local `sector[]`, shared
+ * with the USB probe path and not aligned) is filled by copy after.
+ */
 static int probe_read_hdd(void *ctx, u32 lba, u32 count, void *buf)
 {
+    static u8 s_bounce[ATLAS_DISC_SECTOR_SIZE] __attribute__((aligned(64)));
     u32 start_lba = *(u32 *)ctx;
-    hddAtaTransfer_t xfer;
+    hddAtaTransfer_t xfer __attribute__((aligned(64)));
+
+    if (count * ATLAS_DISC_SECTOR_SIZE > sizeof(s_bounce))
+        return -1;
 
     /* Disc sectors are 2048 bytes, ATA sectors are 512: four ATA
      * sectors per disc sector, same conversion game.c already applied
@@ -229,9 +245,10 @@ static int probe_read_hdd(void *ctx, u32 lba, u32 count, void *buf)
     xfer.size = count * 4;
 
     if (fileXioDevctl("hdd0:", HDIOC_READSECTOR, &xfer, sizeof(xfer),
-                      buf, count * ATLAS_DISC_SECTOR_SIZE) < 0)
+                      s_bounce, count * ATLAS_DISC_SECTOR_SIZE) < 0)
         return -1;
 
+    memcpy(buf, s_bounce, count * ATLAS_DISC_SECTOR_SIZE);
     return 0;
 }
 
@@ -530,6 +547,26 @@ static void restore_drive_modules(void)
     }
 }
 
+/*
+ * TEMPORARY DIAGNOSTIC - remove once the real cause of the silent HDL
+ * boot failure is known.
+ *
+ * Every return past this point in the real function is normally
+ * unwatchable: video is already down, so a failure there has never
+ * been anything but a silent return to the ELF loader. This paints one
+ * flat colour forever instead, so a checkpoint can be told apart from
+ * its neighbours by eye, on a console with no debug link.
+ */
+#define DIAG_RGB(r, g, b) GS_SETREG_RGBAQ((r), (g), (b), 0x80, 0x00)
+
+static void diag_halt(u64 color)
+{
+    for (;;) {
+        atlas_video_frame_begin(color);
+        atlas_video_frame_end();
+    }
+}
+
 atlas_err_t atlas_discboot_run(const atlas_discboot_t *ready)
 {
     char within[ATLASCDVD_PATH_MAX];
@@ -548,7 +585,7 @@ atlas_err_t atlas_discboot_run(const atlas_discboot_t *ready)
 
     if (ready->info.boot[0] == 0) {
         ATLAS_LOG("DISC", "no BOOT2 path");
-        return ATLAS_EFORMAT;
+        diag_halt(DIAG_RGB(0xFF, 0xFF, 0xFF)); /* WHITE: no BOOT2 in SYSTEM.CNF */
     }
 
     /*
@@ -558,7 +595,7 @@ atlas_err_t atlas_discboot_run(const atlas_discboot_t *ready)
      * still fail visibly.
      */
     if (read_btconf() != 0)
-        return ATLAS_EFORMAT;
+        diag_halt(DIAG_RGB(0xFF, 0x00, 0xFF)); /* MAGENTA: IOPBTCONF unparsable */
 
     fill_arg(ready, within);
 
@@ -573,7 +610,11 @@ atlas_err_t atlas_discboot_run(const atlas_discboot_t *ready)
      */
     atlas_device_shutdown();
     atlas_input_shutdown();
-    atlas_video_shutdown();
+    /*
+     * TEMPORARY: video is kept alive past this point so diag_halt() can
+     * paint a checkpoint colour below. Normally this call is right here,
+     * with device/input - see the note on diag_halt() above.
+     */
 
     /*
      * The IOP reset, and why it happens here rather than in the loader.
@@ -589,7 +630,7 @@ atlas_err_t atlas_discboot_run(const atlas_discboot_t *ready)
      * back and it wins the name.
      */
     if (reboot_without_drive() != 0)
-        return ATLAS_EFATAL;
+        diag_halt(DIAG_RGB(0xFF, 0x00, 0x00)); /* RED: IOP reset failed */
 
     SifLoadFileInit();
 
@@ -605,10 +646,10 @@ atlas_err_t atlas_discboot_run(const atlas_discboot_t *ready)
          * reason.
          */
         if (LOAD(ps2dev9, 0, NULL) != 0)
-            return ATLAS_EFAIL;
+            diag_halt(DIAG_RGB(0x00, 0xFF, 0x00)); /* GREEN: ps2dev9 refused */
 
         if (LOAD(ps2atad, 0, NULL) != 0)
-            return ATLAS_EFAIL;
+            diag_halt(DIAG_RGB(0x00, 0x00, 0xFF)); /* BLUE: ps2atad refused */
     } else {
         /*
          * The device stack the module reads through. No filesystem
@@ -661,7 +702,7 @@ atlas_err_t atlas_discboot_run(const atlas_discboot_t *ready)
          * to have warned the user that this is the point of no return.
          */
         ATLAS_LOG("DISC", "drive emulation refused to start");
-        return ATLAS_EFAIL;
+        diag_halt(DIAG_RGB(0xFF, 0xFF, 0x00)); /* YELLOW: atlascdvd refused */
     }
 
     /*
@@ -673,12 +714,27 @@ atlas_err_t atlas_discboot_run(const atlas_discboot_t *ready)
     restore_drive_modules();
 
     /*
+     * TEMPORARY: this is the real position of atlas_video_shutdown() -
+     * everything above just had it deferred so diag_halt() could use the
+     * screen. Reaching here means all four checkpoints above passed, so
+     * the failure is in LoadELFFromFile() itself, below.
+     */
+    atlas_video_shutdown();
+
+    /*
      * The game's own executable, read through the module that has just
      * been installed. "cdrom0:" now means the image.
      */
     args[0] = (char *)ready->info.boot;
     LoadELFFromFile(ready->info.boot, 1, args);
 
+    /*
+     * Video is already down by this point, same as every other return
+     * past atlas_device_shutdown() above - EFATAL, not EFORMAT, so the
+     * caller can tell this apart from the pre-teardown EFORMAT returns
+     * above (bad BOOT2 path, unreadable IOPBTCONF), which still have a
+     * screen to draw a reason on.
+     */
     ATLAS_LOG("DISC", "loader refused %s", ready->info.boot);
-    return ATLAS_EFORMAT;
+    return ATLAS_EFATAL;
 }

@@ -198,25 +198,38 @@ static void update_confirm(games_state_t *st)
     }
 
     if (atlas_input_is_pressed(ATLAS_BTN_CONFIRM)) {
+        atlas_err_t err;
+
         /*
-         * The handover. Does not return when it works.
-         *
          * Nothing is written to the card first: unlike an application
          * launch there is no recently-used list for games, and a card
          * write here would be one more thing between the press and the
          * point where a failure can still be seen.
+         *
+         * Does not return when it works.
          */
-        atlas_discboot_run(&st->ready);
+        err = atlas_discboot_run(&st->ready);
 
         /*
-         * It came back, which means it refused before the IOP reset -
-         * the only window in which returning is possible at all. Our
-         * video and pad are down by now and nothing can be drawn from
-         * here, so ask the run loop to exit: main() tears down what is
-         * left and the console returns to the browser rather than
-         * sitting on a black screen with no way out but the switch.
+         * It came back, so it refused. Two windows exist for that, and
+         * only one still has a screen: ATLAS_EFATAL/ATLAS_EFAIL are
+         * raised only after atlas_device_shutdown()/video shutdown
+         * inside run(), so for those nothing can be drawn and the run
+         * loop is asked to exit, same as before - main() tears down
+         * what is left and the console returns to the browser rather
+         * than sitting on a black screen with no way out but the
+         * switch. Every other code (a stale BOOT2 path, an IOPBTCONF
+         * this console's revision doesn't parse) is raised before that
+         * point and is shown exactly like a prepare() failure would
+         * have been.
          */
-        atlas_screen_request_exit();
+        if (err == ATLAS_EFATAL || err == ATLAS_EFAIL) {
+            atlas_screen_request_exit();
+            return;
+        }
+
+        st->mode = GS_FAILED;
+        st->fail_reason = prepare_message(err);
     }
 }
 
